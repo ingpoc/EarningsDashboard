@@ -1,0 +1,5 @@
+@app.callback(
+    Output('details-modal', 'is_open'),
+    Output('details-body', 'children'),
+    [Input('portfolio-table', 'selected_rows')],
+    [State('portfolio-table', 'data')]
