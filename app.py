@@ -19,6 +19,7 @@ from util.utils import  get_stock_recommendation, parse_numeric_value, get_recom
 from util.charting import create_stock_price_chart, create_financial_metrics_chart
 from util.layout import app_layout  # Import the layout
 from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
+from dash.dash_table.Format import Format, Scheme
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
@@ -64,17 +65,19 @@ def fetch_stock_data(company_name):
 
 @lru_cache(maxsize=32)
 def fetch_latest_quarter_data():
-    stocks = list(collection.find({}, {"company_name": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
+    stocks = list(collection.find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
     
     stock_data = [{
         "company_name": stock['company_name'],
+        "symbol": stock['symbol'],
         "result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
         "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
         "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
         "quarter": latest_metric.get("quarter", "N/A"),
         "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
         "revenue": parse_numeric_value(latest_metric.get("revenue", "0")),
-        "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0"))
+        "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
+        "estimates": latest_metric.get("estimates", "N/A")  # Added this line
     } for stock in stocks for latest_metric in stock['financial_metrics']]
     
     df = pd.DataFrame(stock_data)
@@ -326,10 +329,24 @@ def display_page(pathname):
     return html.Div(["404 - Page not found"], className="text-danger")
 
 
+def process_estimates(estimate_str):
+    if pd.isna(estimate_str) or estimate_str == 'N/A':
+        return None
+    
+    try:
+        if 'Missed' in estimate_str or 'Beat' in estimate_str:
+            value = float(estimate_str.split(':')[-1].strip().rstrip('%'))
+            return value
+        else:
+            return None
+    except ValueError:
+        return None
+
 def overview_layout():
     df = fetch_latest_quarter_data()
 
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
+    df['processed_estimates'] = df['estimates'].apply(process_estimates)
 
     top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
     worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
@@ -341,13 +358,13 @@ def overview_layout():
             columns=[
                 {"name": "Company Name", "id": "company_name"},
                 {"name": "Result Date", "id": "result_date_display"},
-                {"name": "Net Profit Growth (%)", "id": "net_profit_growth"},
-                {"name": "CMP", "id": "cmp"},
+                {"name": "Net Profit Growth (%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             ],
             data=data.to_dict('records'),
-            sort_action="custom",
-            sort_mode="multi",
-            sort_by=[],
+            sort_action="native",
+            sort_mode="single",
             style_table={'overflowX': 'auto'},
             style_cell={'textAlign': 'left', 'padding': '10px'},
             style_header={
@@ -358,6 +375,20 @@ def overview_layout():
                 {
                     'if': {'row_index': 'odd'},
                     'backgroundColor': 'rgb(248, 248, 248)'
+                },
+                {
+                    'if': {
+                        'filter_query': '{processed_estimates} < 0',
+                        'column_id': 'processed_estimates'
+                    },
+                    'color': 'red'
+                },
+                {
+                    'if': {
+                        'filter_query': '{processed_estimates} > 0',
+                        'column_id': 'processed_estimates'
+                    },
+                    'color': 'green'
                 }
             ],
             style_as_list_view=True,
@@ -366,61 +397,82 @@ def overview_layout():
         )
 
     return dbc.Container([
-        # Top 10 Performers Section
-        html.H4("Top 10 Performers", className="mt-4 mb-3"),
-        create_data_table('top-performers-table', top_performers),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Top 10 Performers", className="mt-4 mb-3"),
+                create_data_table('top-performers-table', top_performers),
+            ], md=12),
+        ]),
         html.Br(),
-
-        # Worst 10 Performers Section
-        html.H4("Worst 10 Performers", className="mt-4 mb-3"),
-        create_data_table('worst-performers-table', worst_performers),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Worst 10 Performers", className="mt-4 mb-3"),
+                create_data_table('worst-performers-table', worst_performers),
+            ], md=12),
+        ]),
         html.Br(),
-
-        # Latest 10 Results Section
-        html.H4("Latest 10 Results", className="mt-4 mb-3"),
-        create_data_table('latest-results-table', latest_results),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Latest 10 Results", className="mt-4 mb-3"),
+                create_data_table('latest-results-table', latest_results),
+            ], md=12),
+        ]),
         html.Br(),
-
-        # Stocks Overview Section
-        html.H4("Stocks Overview", className="mt-4 mb-3"),
-        dash_table.DataTable(
-            id='stocks-table',
-            columns=[
-                {"name": "Company Name", "id": "company_name"},
-                {"name": "CMP", "id": "cmp"},
-                {"name": "P/E Ratio", "id": "ttm_pe"},
-                {"name": "Revenue", "id": "revenue"},
-                {"name": "Net Profit", "id": "net_profit"},
-                {"name": "Net Profit Growth(%)", "id": "net_profit_growth"},
-                {"name": "Result Date", "id": "result_date_display"},
-            ],
-            data=df.to_dict('records'),
-            sort_action="custom",
-            sort_mode="multi",
-            sort_by=[],
-            filter_action="native",
-            page_action="native",
-            page_current=0,
-            page_size=22,
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left', 'padding': '10px'},
-            style_header={
-                'backgroundColor': 'rgb(230, 230, 230)',
-                'fontWeight': 'bold'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': 'rgb(248, 248, 248)'
-                }
-            ],
-            style_as_list_view=True,
-            row_selectable='single',
-            selected_rows=[],
-        ),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Stocks Overview", className="mt-4 mb-3"),
+                dash_table.DataTable(
+                id='stocks-table',
+                columns=[
+                    {"name": "Company Name", "id": "company_name"},
+                    {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                    {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                    {"name": "Revenue", "id": "revenue", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                    {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                    {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                    {"name": "Result Date", "id": "result_date_display"},
+                    {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                ],
+                    data=df.to_dict('records'),
+                    sort_action="native",
+                    sort_mode="multi",
+                    filter_action="native",
+                    page_action="native",
+                    page_current=0,
+                    page_size=22,
+                    style_table={'overflowX': 'auto'},
+                    style_cell={'textAlign': 'left', 'padding': '10px'},
+                    style_header={
+                        'backgroundColor': 'rgb(230, 230, 230)',
+                        'fontWeight': 'bold'
+                    },
+                    style_data_conditional=[
+                        {
+                            'if': {'row_index': 'odd'},
+                            'backgroundColor': 'rgb(248, 248, 248)'
+                        },
+                        {
+                            'if': {
+                                'filter_query': '{processed_estimates} < 0',
+                                'column_id': 'processed_estimates'
+                            },
+                            'color': 'red'
+                        },
+                        {
+                            'if': {
+                                'filter_query': '{processed_estimates} > 0',
+                                'column_id': 'processed_estimates'
+                            },
+                            'color': 'green'
+                        }
+                    ],
+                    style_as_list_view=True,
+                    row_selectable='single',
+                    selected_rows=[],
+                ),
+            ], md=12),
+        ]),
     ])
-
-
 
 # Portfolio page layout
 def portfolio_layout():
@@ -513,7 +565,7 @@ def update_table(sort_by):
     df = fetch_latest_quarter_data()
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     
-    if len(sort_by):
+    if sort_by and len(sort_by):
         col = sort_by[0]['column_id']
         if col == 'result_date_display':
             col = 'result_date'
