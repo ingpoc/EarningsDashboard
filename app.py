@@ -90,7 +90,14 @@ def fetch_latest_quarter_data():
 
 
 def create_financial_segments(selected_data, colors):
-   
+    def format_estimate(estimate):
+        if 'Beat' in estimate:
+            return html.Span(estimate, style={'color': 'green'})
+        elif 'Missed' in estimate:
+            return html.Span(estimate, style={'color': 'red'})
+        else:
+            return estimate
+
     cards = [
         ("Basic Information", [
             f"CMP: {selected_data.get('cmp', 'N/A')}",
@@ -102,10 +109,10 @@ def create_financial_segments(selected_data, colors):
             f"Face Value: {selected_data.get('face_value', 'N/A')}",
             f"Book Value: {selected_data.get('book_value', 'N/A')}",
             f"Dividend Yield: {selected_data.get('dividend_yield', 'N/A')}",
-            f"Ttm Eps: {selected_data.get('ttm_eps', 'N/A')}",
-            f"Ttm Pe: {selected_data.get('ttm_pe', 'N/A')}",
-            f"Pb Ratio: {selected_data.get('pb_ratio', 'N/A')}",
-            f"Sector Pe: {selected_data.get('sector_pe', 'N/A')}"
+            f"TTM EPS: {selected_data.get('ttm_eps', 'N/A')}",
+            f"TTM P/E: {selected_data.get('ttm_pe', 'N/A')}",
+            f"P/B Ratio: {selected_data.get('pb_ratio', 'N/A')}",
+            f"Sector P/E: {selected_data.get('sector_pe', 'N/A')}"
         ]),
         ("Financial Performance", [
             f"Revenue: {selected_data.get('revenue', 'N/A')}",
@@ -120,14 +127,19 @@ def create_financial_segments(selected_data, colors):
             f"Technicals Trend: {selected_data.get('technicals_trend', 'N/A')}",
             f"Fundamental Insights: {selected_data.get('fundamental_insights', 'N/A')}",
             f"Net Profit Growth: {selected_data.get('net_profit_growth', 'N/A')}",
-            f"Piotroski Score: {selected_data.get('piotroski_score', 'N/A')}"
+            f"Piotroski Score: {selected_data.get('piotroski_score', 'N/A')}",
+            html.Span(["Estimates: ", format_estimate(selected_data.get('estimates', 'N/A'))])
         ])
     ]
 
     return dbc.Container([
-        html.Br(),
-        dbc.Row([dbc.Col(dbc.Card([dbc.CardHeader(title), dbc.CardBody([html.P(item) for item in items])], className="mb-4 shadow-sm"), width=6) for title, items in cards[:2]]),
-        dbc.Row([dbc.Col(dbc.Card([dbc.CardHeader(title), dbc.CardBody([html.P(item) for item in items])], className="mb-4 shadow-sm"), width=6) for title, items in cards[2:]])
+        dbc.Row([
+            dbc.Col(dbc.Card([
+                dbc.CardHeader(html.H5(title, className="mb-0")),
+                dbc.CardBody([html.P(item, className="mb-1") for item in items])
+            ], className="mb-4 shadow-sm"), width=6) 
+            for title, items in cards
+        ])
     ])
 
 
@@ -142,8 +154,8 @@ def stock_details_layout(company_name, show_full_layout=True):
     colors = {'background': '#ffffff', 'text': '#333333', 'primary': '#003366'}
 
     financials_layout = create_financial_segments(selected_data, colors)
-    twitter_button = dbc.Button("Share to Twitter", id="twitter-share-button", color="info", style={"marginTop": "10px"})
-    twitter_share_response = html.Div(id='twitter-share-response', style={'marginTop': 20})
+    twitter_button = dbc.Button("Share to Twitter", id="twitter-share-button", color="info", className="mt-3")
+    twitter_share_response = html.Div(id='twitter-share-response', className="mt-3")
 
     # Store selected_data in dcc.Store
     data_store = dcc.Store(id='selected-data-store', data=selected_data)
@@ -165,10 +177,12 @@ def stock_details_layout(company_name, show_full_layout=True):
                     dcc.Graph(id='financial-metrics-chart', figure=create_financial_metrics_chart(fetch_stock_data(company_name))),
                 ], label="Charts"),
                 # Uncomment below line to add news tab
-             #   dbc.Tab([html.Ul([html.Li(html.A(article['title'], href=article['url'], target="_blank")) for article in fetch_stock_news(company_name)])], label="News"),
+                # dbc.Tab([html.Ul([html.Li(html.A(article['title'], href=article['url'], target="_blank")) for article in fetch_stock_news(company_name)])], label="News"),
             ]),
             html.Br(),
-            dbc.Alert(id='recommendation-alert', color="info")
+            dbc.Alert(id='recommendation-alert', color="info"),
+            twitter_button,
+            twitter_share_response
         ], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
 
     return dbc.Container([financials_layout, twitter_button, twitter_share_response, data_store], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
@@ -240,43 +254,79 @@ def update_quarter_details(selected_quarter, pathname):
     [State('portfolio-table', 'data')]
 )
 def display_details(selected_rows, rows):
-    if selected_rows:
-        row = rows[selected_rows[0]]
-        instrument_name = row['Instrument']
-        stock_details = fetch_latest_metrics(instrument_name)
-        holding = holdings_collection.find_one({"Instrument": instrument_name})
+    if not selected_rows:
+        return False, []
 
-        net_profit_growth = stock_details.get('net_profit_growth', 'N/A')
-        if isinstance(net_profit_growth, (int, float)):
-            net_profit_growth = f"{net_profit_growth}%"
-        elif isinstance(net_profit_growth, str) and not net_profit_growth.endswith('%'):
-            net_profit_growth = f"{net_profit_growth}%"
+    row = rows[selected_rows[0]]
+    instrument_name = row['Instrument']
+    stock_details = fetch_latest_metrics(instrument_name)
+    holding = holdings_collection.find_one({"Instrument": instrument_name})
 
-        details_content = dbc.Container([
-            dbc.Row([dbc.Col(dbc.Card(dbc.CardBody([
-                html.H5("Basic Information", className="card-title"),
-                html.P(f"Instrument: {instrument_name}"),
-                html.P(f"Quantity: {holding.get('Qty.', 'N/A')}"),
-                html.P(f"Avg Cost: {holding.get('Avg. cost', 'N/A')}"),
-                html.P(f"Current Value: {holding.get('Cur. val', 'N/A')}"),
-                html.P(f"P&L: {holding.get('P&L', 'N/A')}")
-            ]), className="mb-3"), md=6),
-                dbc.Col(dbc.Card(dbc.CardBody([
-                    html.H5("Financial Performance", className="card-title"),
-                    html.P(f"Net Profit Growth: {net_profit_growth}"),
-                    html.P(f"Piotroski Score: {stock_details.get('piotroski_score', 'N/A')}"),
-                    html.P(f"Strengths: {stock_details.get('strengths', 'N/A')}"),
-                    html.P(f"Weaknesses: {stock_details.get('weaknesses', 'N/A')}")
-                ]), className="mb-3"), md=6)]),
-            dbc.Row([dbc.Col(dbc.Card(dbc.CardBody([
-                html.H5("Technical Insights", className="card-title"),
-                html.P(f"Technicals Trend: {stock_details.get('technicals_trend', 'N/A')}"),
-                html.P(f"Fundamental Insights: {stock_details.get('fundamental_insights', 'N/A')}")
-            ]), className="mb-3"), md=12)])
-        ], fluid=True)
+    # Fetch full stock details
+    stock = collection.find_one({"symbol": instrument_name})
+    if not stock or not stock.get('financial_metrics'):
+        return False, html.Div("Stock details not found.", className="text-danger")
 
-        return True, details_content
-    return False, []
+    selected_data = stock['financial_metrics'][-1]
+
+    def format_estimate(estimate):
+        if 'Beat' in estimate:
+            return html.Span(estimate, style={'color': 'green'})
+        elif 'Missed' in estimate:
+            return html.Span(estimate, style={'color': 'red'})
+        else:
+            return estimate
+
+    cards = [
+        ("Basic Information", [
+            f"Instrument: {instrument_name}",
+            f"Quantity: {holding.get('Qty.', 'N/A')}",
+            f"Avg Cost: {holding.get('Avg. cost', 'N/A')}",
+            f"Current Value: {holding.get('Cur. val', 'N/A')}",
+            f"P&L: {holding.get('P&L', 'N/A')}",
+            f"CMP: {selected_data.get('cmp', 'N/A')}",
+            f"Report Type: {selected_data.get('report_type', 'N/A')}",
+            f"Result Date: {selected_data.get('result_date', 'N/A')}"
+        ]),
+        ("Valuation Metrics", [
+            f"Market Cap: {selected_data.get('market_cap', 'N/A')}",
+            f"Face Value: {selected_data.get('face_value', 'N/A')}",
+            f"Book Value: {selected_data.get('book_value', 'N/A')}",
+            f"Dividend Yield: {selected_data.get('dividend_yield', 'N/A')}",
+            f"TTM EPS: {selected_data.get('ttm_eps', 'N/A')}",
+            f"TTM P/E: {selected_data.get('ttm_pe', 'N/A')}",
+            f"P/B Ratio: {selected_data.get('pb_ratio', 'N/A')}",
+            f"Sector P/E: {selected_data.get('sector_pe', 'N/A')}"
+        ]),
+        ("Financial Performance", [
+            f"Revenue: {selected_data.get('revenue', 'N/A')}",
+            f"Gross Profit: {selected_data.get('gross_profit', 'N/A')}",
+            f"Gross Profit Growth: {selected_data.get('gross_profit_growth', 'N/A')}",
+            f"Revenue Growth: {selected_data.get('revenue_growth', 'N/A')}",
+            f"Net Profit: {selected_data.get('net_profit', 'N/A')}",
+            f"Net Profit Growth: {stock_details.get('net_profit_growth', 'N/A')}"
+        ]),
+        ("Insights", [
+            f"Strengths: {stock_details.get('strengths', 'N/A')}",
+            f"Weaknesses: {stock_details.get('weaknesses', 'N/A')}",
+            f"Technicals Trend: {stock_details.get('technicals_trend', 'N/A')}",
+            f"Fundamental Insights: {stock_details.get('fundamental_insights', 'N/A')}",
+            f"Piotroski Score: {stock_details.get('piotroski_score', 'N/A')}",
+            html.Span(["Estimates: ", format_estimate(selected_data.get('estimates', 'N/A'))])
+        ])
+    ]
+
+    details_content = dbc.Container([
+        dbc.Row([
+            dbc.Col(dbc.Card([
+                dbc.CardHeader(html.H5(title, className="mb-0")),
+                dbc.CardBody([html.P(item, className="mb-1") for item in items])
+            ], className="mb-3 shadow-sm"), width=6) 
+            for title, items in cards
+        ])
+    ], fluid=True)
+
+    return True, details_content
 
 def fetch_latest_metrics(symbol):
     # Query the collection using the symbol instead of the company name
