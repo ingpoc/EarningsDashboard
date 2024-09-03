@@ -68,7 +68,7 @@ def fetch_latest_quarter_data():
     
     stock_data = [{
         "company_name": stock['company_name'],
-        "formatted_date": pd.to_datetime(latest_metric.get("result_date", "N/A")).strftime("%d, %B %Y"),
+        "result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
         "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
         "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
         "quarter": latest_metric.get("quarter", "N/A"),
@@ -77,8 +77,13 @@ def fetch_latest_quarter_data():
         "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0"))
     } for stock in stocks for latest_metric in stock['financial_metrics']]
     
-    df = pd.DataFrame(stock_data).sort_values(by="formatted_date", ascending=False)
+    df = pd.DataFrame(stock_data)
+
+    # Ensure sorting by 'result_date' in descending order to get the latest results first
+    df = df.sort_values(by="result_date", ascending=False)
+
     return df
+
 
 
 def create_financial_segments(selected_data, colors):
@@ -303,71 +308,65 @@ def display_page(pathname):
 def overview_layout():
     df = fetch_latest_quarter_data()
 
+    # Create a new column for display, keeping the original for sorting
+    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
+
     # Top 10 Performers by Net Profit Growth
     top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
 
     # Worst 10 Performers by Net Profit Growth
     worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
 
-    # Latest 10 Results by Result Date (already sorted correctly)
-    latest_results = df.head(10).sort_values(by="net_profit_growth", ascending=False)
+    # Latest 10 Results by Result Date
+    latest_results = df.sort_values(by="result_date", ascending=False).head(10)
+
+    # Function to create DataTable
+    def create_data_table(id, data):
+        return dash_table.DataTable(
+            id=id,
+            columns=[
+                {"name": "Company Name", "id": "company_name"},
+                {"name": "Result Date", "id": "result_date_display"},
+                {"name": "Net Profit Growth (%)", "id": "net_profit_growth"},
+                {"name": "CMP", "id": "cmp"},
+            ],
+            data=data.to_dict('records'),
+            sort_action="custom",
+            sort_mode="multi",
+            sort_by=[],
+            style_table={'overflowX': 'auto'},
+            style_cell={'textAlign': 'left', 'padding': '10px'},
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold'
+            },
+            style_data_conditional=[
+                {
+                    'if': {'row_index': 'odd'},
+                    'backgroundColor': 'rgb(248, 248, 248)'
+                }
+            ],
+            style_as_list_view=True,
+        )
 
     return dbc.Container([
         # Top 10 Performers Section
-        html.H4("Top 10 Performers"),
-        dash_table.DataTable(
-            id='top-performers-table',
-            columns=[
-                {"name": "Company Name", "id": "company_name"},
-                {"name": "Result Date", "id": "formatted_date"},
-                {"name": "Net Profit Growth (%)", "id": "net_profit_growth"},
-                {"name": "CMP", "id": "cmp"},
-            ],
-            data=top_performers.to_dict('records'),
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left'},
-            style_as_list_view=True,
-        ),
+        html.H4("Top 10 Performers", className="mt-4 mb-3"),
+        create_data_table('top-performers-table', top_performers),
         html.Br(),
 
         # Worst 10 Performers Section
-        html.H4("Worst 10 Performers"),
-        dash_table.DataTable(
-            id='worst-performers-table',
-            columns=[
-                {"name": "Company Name", "id": "company_name"},
-                {"name": "Result Date", "id": "formatted_date"},
-                {"name": "Net Profit Growth (%)", "id": "net_profit_growth"},
-                {"name": "CMP", "id": "cmp"},
-            ],
-            data=worst_performers.to_dict('records'),
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left'},
-            style_as_list_view=True,
-        ),
-
+        html.H4("Worst 10 Performers", className="mt-4 mb-3"),
+        create_data_table('worst-performers-table', worst_performers),
         html.Br(),
 
         # Latest 10 Results Section
-        html.H4("Latest 10 Results"),
-        dash_table.DataTable(
-            id='latest-results-table',
-            columns=[
-                {"name": "Company Name", "id": "company_name"},
-                {"name": "Result Date", "id": "formatted_date"},
-                {"name": "Net Profit Growth (%)", "id": "net_profit_growth"},
-                {"name": "Quarter", "id": "quarter"},
-            ],
-            data=latest_results.to_dict('records'),
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left'},
-            style_as_list_view=True,
-        ),
-        
+        html.H4("Latest 10 Results", className="mt-4 mb-3"),
+        create_data_table('latest-results-table', latest_results),
         html.Br(),
 
-        # Existing Stocks Overview Table
-        html.H3("Stocks Overview"),
+        # Stocks Overview Section
+        html.H4("Stocks Overview", className="mt-4 mb-3"),
         dash_table.DataTable(
             id='stocks-table',
             columns=[
@@ -377,21 +376,34 @@ def overview_layout():
                 {"name": "Revenue", "id": "revenue"},
                 {"name": "Net Profit", "id": "net_profit"},
                 {"name": "Net Profit Growth(%)", "id": "net_profit_growth"},
-                {"name": "Result Date", "id": "formatted_date"},
+                {"name": "Result Date", "id": "result_date_display"},
             ],
             data=df.to_dict('records'),
-            sort_action="native",
+            sort_action="custom",
+            sort_mode="multi",
+            sort_by=[],
             filter_action="native",
             page_action="native",
             page_current=0,
             page_size=22,
             style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left'},
+            style_cell={'textAlign': 'left', 'padding': '10px'},
+            style_header={
+                'backgroundColor': 'rgb(230, 230, 230)',
+                'fontWeight': 'bold'
+            },
+            style_data_conditional=[
+                {
+                    'if': {'row_index': 'odd'},
+                    'backgroundColor': 'rgb(248, 248, 248)'
+                }
+            ],
             style_as_list_view=True,
             row_selectable='single',
             selected_rows=[],
         ),
     ])
+
 
 
 # Portfolio page layout
@@ -476,6 +488,26 @@ def portfolio_layout():
         html.H4("Current Portfolio"),
         table
     ])
+
+@app.callback(
+    Output('stocks-table', 'data'),
+    Input('stocks-table', 'sort_by')
+)
+def update_table(sort_by):
+    df = fetch_latest_quarter_data()
+    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
+    
+    if len(sort_by):
+        col = sort_by[0]['column_id']
+        if col == 'result_date_display':
+            col = 'result_date'
+        df = df.sort_values(
+            col,
+            ascending=sort_by[0]['direction'] == 'asc',
+            inplace=False
+        )
+    
+    return df.to_dict('records')
 
 
 @app.callback(

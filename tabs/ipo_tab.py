@@ -241,31 +241,36 @@ def register_ipo_callbacks(app):
         if not n_clicks or not combined_data:
             raise PreventUpdate
 
-        upcoming_ipos = combined_data.get('upcoming', [])
         current_ipos = combined_data.get('current', [])
-        all_ipos = upcoming_ipos + current_ipos[:9]  # Limit to 9 IPOs total
 
-        # Remove IPO type labels from company names
-        numbered_ipos = "\n".join(f"{i+1}. {ipo['Company Name'].split('(')[0].strip()}" for i, ipo in enumerate(all_ipos))
+        if not current_ipos:
+            return html.Div("No current IPOs available for analysis.", className="text-warning"), ""
 
-        prompt = f"""Analyze the following upcoming and current IPOs:
+        # Limit to 5 current IPOs for a more focused analysis
+        current_ipos = current_ipos[:5]
+
+        numbered_ipos = "\n".join(f"{i+1}. {ipo['Company Name'].split('(')[0].strip()} " for i, ipo in enumerate(current_ipos))
+
+        prompt = f"""Analyze the following current IPOs:
     {numbered_ipos}
 
     For each IPO, provide:
-    1. Investment Recommendation: Brief summary based on market sentiment.
-    2. Ranking for Investment Potential: Compared to other IPOs.
-    3. Financial Health: Key growth metrics and profitability.
-    4. Valuation and Pricing: Is it overvalued or fairly priced?
-    5. GMP (Grey Market Premium): Indication of market interest.
-    6. Risk Factors: Major risks to consider.
+        1. Investment Recommendation: Brief summary based on market sentiment.
+        2. Ranking for Investment Potential: Compared to other IPOs.
+        3. Financial Health: Key growth metrics and profitability.
+        4. Valuation and Pricing: Is it overvalued or fairly priced?
+        5. GMP (Grey Market Premium): Indication of market interest.
+        6. Risk Factors: Major risks to consider.
 
-    Keep each analysis concise. Include relevant hashtags like #stockname #stockanalysis #Valuation #Financials #Metrics. In the end provide recommendation based on data about which IPO to invest in and which IPO to avoid"""
+        Keep each analysis concise. Include relevant hashtags like #stockname #stockanalysis #Valuation #Financials #Metrics. In the end provide recommendation based on data about which IPO to invest in and which IPO to avoid"""
+
 
         prompt_display = dbc.Card([
-            dbc.CardHeader("IPO Analysis Prompt"),
+            dbc.CardHeader("Current IPO Analysis Prompt", className="bg-primary text-white"),
             dbc.CardBody([
-                html.Pre(prompt, style={"white-space": "pre-wrap", "word-break": "keep-all"}),
-            ])
-        ])
+                html.Pre(prompt, style={"white-space": "pre-wrap", "word-break": "keep-all", "font-size": "0.9rem"}),
+            ]),
+            
+        ], className="shadow")
 
         return prompt_display, prompt
