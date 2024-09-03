@@ -176,16 +176,37 @@ def stock_details_layout(company_name, show_full_layout=True):
     [Output('overview-details-modal', 'is_open'),
      Output('overview-details-body', 'children'),
      Output('modal-title', 'children')],
-    [Input('stocks-table', 'selected_rows')],
-    [State('stocks-table', 'data')]
+    [Input('stocks-table', 'selected_rows'),
+     Input('top-performers-table', 'selected_rows'),
+     Input('worst-performers-table', 'selected_rows'),
+     Input('latest-results-table', 'selected_rows')],
+    [State('stocks-table', 'data'),
+     State('top-performers-table', 'data'),
+     State('worst-performers-table', 'data'),
+     State('latest-results-table', 'data')]
 )
-def display_overview_details(selected_rows, rows):
-    if selected_rows:
-        row = rows[selected_rows[0]]
-        company_name = row['company_name']
-        stock_details = stock_details_layout(company_name, show_full_layout=False)
-        return True, stock_details, f"Stock Details of {company_name}"
-    return False, "", ""
+def display_overview_details(stocks_selected, top_selected, worst_selected, latest_selected,
+                             stocks_data, top_data, worst_data, latest_data):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return False, "", ""
+    
+    triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if triggered_id == 'stocks-table' and stocks_selected:
+        row = stocks_data[stocks_selected[0]]
+    elif triggered_id == 'top-performers-table' and top_selected:
+        row = top_data[top_selected[0]]
+    elif triggered_id == 'worst-performers-table' and worst_selected:
+        row = worst_data[worst_selected[0]]
+    elif triggered_id == 'latest-results-table' and latest_selected:
+        row = latest_data[latest_selected[0]]
+    else:
+        return False, "", ""
+
+    company_name = row['company_name']
+    stock_details = stock_details_layout(company_name, show_full_layout=False)
+    return True, stock_details, f"Stock Details of {company_name}"
 
 
 @app.callback(
@@ -308,19 +329,12 @@ def display_page(pathname):
 def overview_layout():
     df = fetch_latest_quarter_data()
 
-    # Create a new column for display, keeping the original for sorting
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
 
-    # Top 10 Performers by Net Profit Growth
     top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
-
-    # Worst 10 Performers by Net Profit Growth
     worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
-
-    # Latest 10 Results by Result Date
     latest_results = df.sort_values(by="result_date", ascending=False).head(10)
 
-    # Function to create DataTable
     def create_data_table(id, data):
         return dash_table.DataTable(
             id=id,
@@ -347,6 +361,8 @@ def overview_layout():
                 }
             ],
             style_as_list_view=True,
+            row_selectable='single',
+            selected_rows=[],
         )
 
     return dbc.Container([
