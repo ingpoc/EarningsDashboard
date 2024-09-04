@@ -329,29 +329,27 @@ def display_details(selected_rows, rows):
     return True, details_content
 
 def fetch_latest_metrics(symbol):
-    # Query the collection using the symbol instead of the company name
     stock = collection.find_one({"symbol": symbol})
     
     if not stock or not stock.get('financial_metrics'):
         return {
-            "net_profit_growth": "NA",
-            "strengths": "NA",
-            "weaknesses": "NA",
+            "net_profit_growth": "0",
+            "strengths": "0",
+            "weaknesses": "0",
             "technicals_trend": "NA",
             "fundamental_insights": "NA",
-            "piotroski_score": "NA"
+            "piotroski_score": "0"
         }
 
-    # Get the latest financial metric based on result date
     latest_metric = max(stock['financial_metrics'], key=lambda x: pd.to_datetime(x.get("result_date", "N/A")))
     
     return {
-        "net_profit_growth": latest_metric.get("net_profit_growth", "NA"),
-        "strengths": latest_metric.get("strengths", "NA"),
-        "weaknesses": latest_metric.get("weaknesses", "NA"),
+        "net_profit_growth": latest_metric.get("net_profit_growth", "0"),
+        "strengths": latest_metric.get("strengths", "0"),
+        "weaknesses": latest_metric.get("weaknesses", "0"),
         "technicals_trend": latest_metric.get("technicals_trend", "NA"),
         "fundamental_insights": latest_metric.get("fundamental_insights", "NA"),
-        "piotroski_score": latest_metric.get("piotroski_score", "NA")
+        "piotroski_score": latest_metric.get("piotroski_score", "0")
     }
 
 # Callback to update page content
@@ -485,7 +483,6 @@ def overview_layout():
                 ],
                     data=df.to_dict('records'),
                     sort_action="native",
-                    sort_mode="multi",
                     filter_action="native",
                     page_action="native",
                     page_current=0,
@@ -538,9 +535,18 @@ def portfolio_layout():
     # Fetch all the required metrics for each instrument
     metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
 
-    # Extract numerical parts for strengths and weaknesses
-    metrics['strengths'] = metrics['strengths'].str.extract(r'(\d+)').fillna('NA')
-    metrics['weaknesses'] = metrics['weaknesses'].str.extract(r'(\d+)').fillna('NA')
+    # Function to extract numeric value from strengths and weaknesses
+    def extract_numeric(value):
+        if pd.isna(value) or value == 'NA':
+            return 0
+        try:
+            return int(''.join(filter(str.isdigit, str(value))))
+        except ValueError:
+            return 0
+
+    # Convert strengths and weaknesses to numeric
+    metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
+    metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
 
     # Replace 'NA' with suitable default values and convert to appropriate data types
     metrics['net_profit_growth'] = metrics['net_profit_growth'].replace('NA', '0').str.replace('%', '', regex=False).str.replace(',', '', regex=False).astype(float)
@@ -552,37 +558,67 @@ def portfolio_layout():
     # Ensure the column name is consistent
     df.rename(columns={"net_profit_growth": "Net Profit Growth %"}, inplace=True)
 
-    # Check if 'Net Profit Growth (Latest) %' exists now
-    if 'Net Profit Growth %' not in df.columns:
-        print("Column 'Net Profit Growth %' does not exist in DataFrame.")
-        return html.Div("Failed to fetch necessary data.", className="text-danger")
+    # Fetch estimates data
+    estimates_data = fetch_latest_quarter_data()
+    estimates_dict = dict(zip(estimates_data['symbol'], estimates_data['estimates']))
+    df['Estimates'] = df['Instrument'].map(estimates_dict)
+    df['Estimates (%)'] = df['Estimates'].apply(process_estimates)
 
     # Filter columns to show only relevant ones
-    filtered_df = df[['Instrument', 'LTP','Cur. val', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score']]
+    filtered_df = df[['Instrument', 'LTP', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
 
-    # Add a recommendation column based on the new criteria
+    # Add a recommendation column based on the criteria
     filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(get_stock_recommendation, axis=1))
 
-
     table = dash_table.DataTable(
-    id='portfolio-table',  # Give the table an ID
-    data=filtered_df.to_dict('records'),
-    columns=[{'name': i, 'id': i} for i in filtered_df.columns],
-    style_table={'overflowX': 'auto'},
-    style_cell={'textAlign': 'left'},
-    style_as_list_view=True,
-    filter_action="native",  # Enable filtering
-    sort_action="native",  # Enable sorting
-    page_action="native",  # Enable pagination
-    page_current=0,
-    page_size=30,
-    row_selectable='single',  # Enable row selection via checkboxes
-    selected_rows=[],  # Initialize with no rows selected
-)
-
+        id='portfolio-table',
+        data=filtered_df.to_dict('records'),
+        columns=[
+            {"name": i, "id": i, "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)} 
+            if i in ['LTP', 'P&L', 'Net Profit Growth %', 'piotroski_score', 'Estimates (%)'] 
+            else {"name": i, "id": i, "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)} 
+            if i in ['strengths', 'weaknesses']
+            else {"name": i, "id": i}
+            for i in filtered_df.columns
+        ],
+        style_table={'overflowX': 'auto'},
+        style_cell={'textAlign': 'left'},
+        style_as_list_view=True,
+        filter_action="native",
+        sort_action="native",
+        page_action="native",
+        page_current=0,
+        page_size=30,
+        row_selectable='single',
+        selected_rows=[],
+        style_data_conditional=[
+            {
+                'if': {
+                    'filter_query': '{Estimates (%)} < 0',
+                    'column_id': 'Estimates (%)'
+                },
+                'color': 'red'
+            },
+            {
+                'if': {
+                    'filter_query': '{Estimates (%)} > 0',
+                    'column_id': 'Estimates (%)'
+                },
+                'color': 'green'
+            },
+            {
+                'if': {'column_id': 'technicals_trend'},
+                'backgroundColor': 'rgba(0, 0, 255, 0.1)'  # Light blue background for technicals_trend
+            },
+            {
+                'if': {'column_id': 'Recommendation'},
+                'backgroundColor': 'rgba(0, 255, 0, 0.1)'  # Light green background for Recommendation
+            }
+        ]
+    )
 
     return html.Div([
-        html.H3("Portfolio Management"),
+        html.H3("Portfolio Management", className="mb-4"),
         dcc.Upload(
             id='upload-data',
             children=html.Div([
@@ -603,9 +639,11 @@ def portfolio_layout():
         ),
         html.Div(id='output-data-upload'),
         html.Br(),
-        html.H4("Current Portfolio"),
-        table
+        html.H4("Current Portfolio", className="mb-3"),
+        table,
+        html.Div(id="portfolio-summary", className="mt-4")
     ])
+
 
 @app.callback(
     Output('stocks-table', 'data'),
