@@ -30,6 +30,8 @@ overview_modal = dbc.Modal(
 )
 
 # Sidebar layout
+# Update your app_layout in layout.py
+
 sidebar = dbc.Col(
     [
         html.H2("Earnings Dashboard", className="display-4"),
@@ -57,13 +59,17 @@ sidebar = dbc.Col(
         dbc.Switch(id="dark-mode-switch", label="Dark Mode", value=False),
     ],
     width=2,
-    style={"height": "100vh", "position": "fixed", "background-color": "#f8f9fa"}
+    className="sidebar",
+    style={"position": "fixed", "top": 0, "left": 0, "bottom": 0, "width": "16.666667%", "padding": "20px", "background-color": "#f8f9fa"}
 )
 
-# Content layout
-content = dbc.Col(id="page-content", width=10, style={"margin-left": "16.666667%", "padding": "20px"})
+content = dbc.Col(
+    id="page-content",
+    width=10,
+    className="content",
+    style={"margin-left": "16.666667%", "padding": "20px"}
+)
 
-# App layout
 app_layout = dbc.Container(
     [
         dcc.Location(id='url', refresh=False),
@@ -73,12 +79,12 @@ app_layout = dbc.Container(
                 content,
                 details_modal,
                 overview_modal
-            ]
+            ],
+            className="h-100"
         ),
-        # Global stores
         dcc.Store(id="combined-ipo-store"),
         dcc.Store(id="dark-mode-store"),
     ],
     fluid=True,
-    style={"background-color": "#f0f2f5"}
+    style={"height": "100vh", "background-color": "#f0f2f5"}
 )
