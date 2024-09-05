@@ -30,6 +30,8 @@ holdings_collection = db['holdings']
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 
+
+
 # Register callbacks from other files
 register_community_callbacks(app)
 register_twitter_callbacks(app)
@@ -67,6 +69,7 @@ def fetch_stock_data(company_name):
 def fetch_latest_quarter_data():
     stocks = list(collection.find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
     
+    
     stock_data = [{
         "company_name": stock['company_name'],
         "symbol": stock['symbol'],
@@ -75,17 +78,23 @@ def fetch_latest_quarter_data():
         "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
         "quarter": latest_metric.get("quarter", "N/A"),
         "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
-        "revenue": parse_numeric_value(latest_metric.get("revenue", "0")),
         "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
-        "estimates": latest_metric.get("estimates", "N/A")  # Added this line
+        "estimates": latest_metric.get("estimates", "N/A"),
+        "strengths": extract_numeric(latest_metric.get("strengths", "0")),
+        "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0"))
     } for stock in stocks for latest_metric in stock['financial_metrics']]
     
     df = pd.DataFrame(stock_data)
-
-    # Ensure sorting by 'result_date' in descending order to get the latest results first
     df = df.sort_values(by="result_date", ascending=False)
-
     return df
+
+def extract_numeric(value):
+    if pd.isna(value) or value == 'NA':
+        return 0
+    try:
+        return int(''.join(filter(str.isdigit, str(value))))
+    except ValueError:
+        return 0
 
 
 
@@ -475,9 +484,10 @@ def overview_layout():
                     {"name": "Company Name", "id": "company_name"},
                     {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
                     {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                    {"name": "Revenue", "id": "revenue", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
                     {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
                     {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                    {"name": "Strengths", "id": "strengths", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                    {"name": "Weaknesses", "id": "weaknesses", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
                     {"name": "Result Date", "id": "result_date_display"},
                     {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
                 ],
@@ -511,6 +521,14 @@ def overview_layout():
                                 'column_id': 'processed_estimates'
                             },
                             'color': 'green'
+                        },
+                        {
+                            'if': {'column_id': 'strengths'},
+                            'backgroundColor': 'rgba(0, 255, 0, 0.1)'  # Light green background for strengths
+                        },
+                        {
+                            'if': {'column_id': 'weaknesses'},
+                            'backgroundColor': 'rgba(255, 0, 0, 0.1)'  # Light red background for weaknesses
                         }
                     ],
                     style_as_list_view=True,
