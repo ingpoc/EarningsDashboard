@@ -15,9 +15,18 @@ from tabs.community_tab import (
     register_twitter_callbacks,
     register_twitter_post_callbacks  
 )
-from util.utils import  get_stock_recommendation, parse_numeric_value, get_recommendation  
+from tabs.overview_tab import overview_layout
+from util.utils import (
+    get_stock_recommendation,
+    parse_numeric_value,
+    get_recommendation,
+    fetch_latest_quarter_data,
+    fetch_stock_data,
+    extract_numeric,
+    process_estimates
+)
 from util.charting import create_stock_price_chart, create_financial_metrics_chart
-from util.layout import app_layout  # Import the layout
+from util.layout import app_layout
 from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
 from dash.dash_table.Format import Format, Scheme
 
@@ -30,82 +39,14 @@ holdings_collection = db['holdings']
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 
-
-
 # Register callbacks from other files
 register_community_callbacks(app)
 register_twitter_callbacks(app)
-register_twitter_post_callbacks(app)  
+register_twitter_post_callbacks(app)
 register_scraper_callbacks(app)
-register_ipo_callbacks(app)  # Register IPO callbacks
-
+register_ipo_callbacks(app)
 
 app.layout = app_layout
-
-def fetch_stock_data(company_name):
-    stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
-    if not stock:
-        print(f"Stock not found in MongoDB: {company_name}")
-        return pd.DataFrame()
-    
-    stock_data = [{
-        "quarter": metric.get("quarter", "N/A"),
-        "market_cap": parse_numeric_value(metric.get("market_cap")),
-        "ttm_pe": parse_numeric_value(metric.get("ttm_pe")),
-        "revenue": parse_numeric_value(metric.get("revenue")),
-        "gross_profit": parse_numeric_value(metric.get("gross_profit")),
-        "net_profit": parse_numeric_value(metric.get("net_profit")),
-        "revenue_growth": parse_numeric_value(metric.get("revenue_growth"), '%'),
-        "gross_profit_growth": parse_numeric_value(metric.get("gross_profit_growth"), '%'),
-        "net_profit_growth": parse_numeric_value(metric.get("net_profit_growth"), '%'),
-        "dividend_yield": parse_numeric_value(metric.get("dividend_yield"), '%'),
-        "debt_to_equity": parse_numeric_value(metric.get("debt_to_equity"))
-    } for metric in stock['financial_metrics']]
-    
-    return pd.DataFrame(stock_data)
-
-
-@lru_cache(maxsize=32)
-def fetch_latest_quarter_data():
-    stocks = list(collection.find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
-    
-    # Fetch portfolio stocks
-    portfolio_stocks = set(holdings_collection.distinct('Instrument'))
-    
-    # Read the SVG file
-    with open('assets/portfolio_indicator.svg', 'r') as f:
-        svg_content = f.read()
-    
-    # Encode the SVG content
-    encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
-    
-    stock_data = [{
-        "company_name": stock['company_name'],
-        "symbol": stock['symbol'],
-        "company_name_with_indicator": f'<div style="position: relative; padding-left: 30px;"><img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%);"> {stock["company_name"]}</div>' if stock['symbol'] in portfolio_stocks else f'<div style="padding-left: 30px;">{stock["company_name"]}</div>',"result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
-        "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
-        "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
-        "quarter": latest_metric.get("quarter", "N/A"),
-        "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
-        "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
-        "estimates": latest_metric.get("estimates", "N/A"),
-        "strengths": extract_numeric(latest_metric.get("strengths", "0")),
-        "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0"))
-    } for stock in stocks for latest_metric in stock['financial_metrics']]
-    
-    df = pd.DataFrame(stock_data)
-    df = df.sort_values(by="result_date", ascending=False)
-    return df
-
-def extract_numeric(value):
-    if pd.isna(value) or value == 'NA':
-        return 0
-    try:
-        return int(''.join(filter(str.isdigit, str(value))))
-    except ValueError:
-        return 0
-
-
 
 def create_financial_segments(selected_data, colors):
     def format_estimate(estimate):
@@ -160,8 +101,6 @@ def create_financial_segments(selected_data, colors):
         ])
     ])
 
-
-
 def stock_details_layout(company_name, show_full_layout=True):
     stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
     
@@ -175,7 +114,6 @@ def stock_details_layout(company_name, show_full_layout=True):
     twitter_button = dbc.Button("Share to Twitter", id="twitter-share-button", color="info", className="mt-3")
     twitter_share_response = html.Div(id='twitter-share-response', className="mt-3")
 
-    # Store selected_data in dcc.Store
     data_store = dcc.Store(id='selected-data-store', data=selected_data)
 
     if show_full_layout:
@@ -194,8 +132,6 @@ def stock_details_layout(company_name, show_full_layout=True):
                     dcc.Graph(id='stock-price-chart', figure=create_stock_price_chart(company_name)),
                     dcc.Graph(id='financial-metrics-chart', figure=create_financial_metrics_chart(fetch_stock_data(company_name))),
                 ], label="Charts"),
-                # Uncomment below line to add news tab
-                # dbc.Tab([html.Ul([html.Li(html.A(article['title'], href=article['url'], target="_blank")) for article in fetch_stock_news(company_name)])], label="News"),
             ]),
             html.Br(),
             dbc.Alert(id='recommendation-alert', color="info"),
@@ -204,8 +140,6 @@ def stock_details_layout(company_name, show_full_layout=True):
         ], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
 
     return dbc.Container([financials_layout, twitter_button, twitter_share_response, data_store], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
-
-
 
 @app.callback(
     [Output('overview-details-modal', 'is_open'),
@@ -243,7 +177,6 @@ def display_overview_details(stocks_selected, top_selected, worst_selected, late
     stock_details = stock_details_layout(company_name, show_full_layout=False)
     return True, stock_details, f"Stock Details of {company_name}"
 
-
 @app.callback(
     Output('recommendation-alert', 'children'),
     Input('quarter-dropdown', 'value'),
@@ -264,7 +197,6 @@ def update_quarter_details(selected_quarter, pathname):
     recommendation = get_recommendation(pd.DataFrame([selected_data]))
     return f"Recommendation: {recommendation}"
 
-
 @app.callback(
     Output('details-modal', 'is_open'),
     Output('details-body', 'children'),
@@ -280,7 +212,6 @@ def display_details(selected_rows, rows):
     stock_details = fetch_latest_metrics(instrument_name)
     holding = holdings_collection.find_one({"Instrument": instrument_name})
 
-    # Fetch full stock details
     stock = collection.find_one({"symbol": instrument_name})
     if not stock or not stock.get('financial_metrics'):
         return False, html.Div("Stock details not found.", className="text-danger")
@@ -370,15 +301,14 @@ def fetch_latest_metrics(symbol):
         "piotroski_score": latest_metric.get("piotroski_score", "0")
     }
 
-# Callback to update page content
-# Callback to update page content
 @app.callback(
     dash.dependencies.Output('page-content', 'children'),
     [dash.dependencies.Input('url', 'pathname')]
 )
 def display_page(pathname):
     if pathname == "/overview" or pathname == "/":
-        return overview_layout()
+        df = fetch_latest_quarter_data()
+        return overview_layout(df)
     elif pathname.startswith("/stock/"):
         company_name = pathname.split("/stock/")[1]
         return stock_details_layout(company_name)
@@ -389,181 +319,37 @@ def display_page(pathname):
     elif pathname == "/community":
         return community_layout()
     elif pathname == "/ipos":
-        return ipo_layout()  # This should now include the 'refresh-ipo-data' button
+        return ipo_layout()
     elif pathname == "/settings":
         return settings_layout()
     return html.Div(["404 - Page not found"], className="text-danger")
 
 
-def process_estimates(estimate_str):
-    if pd.isna(estimate_str) or estimate_str == 'N/A':
-        return None
-    
-    try:
-        if 'Missed' in estimate_str or 'Beat' in estimate_str:
-            value = float(estimate_str.split(':')[-1].strip().rstrip('%'))
-            return value
-        else:
-            return None
-    except ValueError:
-        return None
-
-def overview_layout():
-    df = fetch_latest_quarter_data()
-
-    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')  # Changed back to original format
-    df['processed_estimates'] = df['estimates'].apply(process_estimates)
-
-    top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
-    worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
-    latest_results = df.sort_values(by="result_date", ascending=False).head(10)
-
-    def create_data_table(id, data):
-        return dash_table.DataTable(
-            id=id,
-            columns=[
-                {"name": "Company Name", "id": "company_name_with_indicator", "presentation": "markdown"},
-                {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                {"name": "Strengths", "id": "strengths", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                {"name": "Weaknesses", "id": "weaknesses", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                {"name": "Result Date", "id": "result_date_display"},
-                {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-            ],
-            data=data.to_dict('records'),
-            markdown_options={"html": True},
-            style_table={
-                'overflowX': 'auto',
-                'overflowY': 'hidden',  # Hide vertical scrollbar
-                'minWidth': '100%',
-                'width': '100%',
-            },
-            style_cell={
-                'textAlign': 'left',
-                'padding': '5px',
-                'fontSize': '14px',
-                'whiteSpace': 'nowrap',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'minWidth': '50px',
-                'maxWidth': '180px',
-            },
-            style_cell_conditional=[
-                {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '200px', 'maxWidth': '300px'},
-                {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
-                {'if': {'column_id': 'ttm_pe'}, 'minWidth': '80px', 'maxWidth': '100px'},
-                {'if': {'column_id': 'net_profit'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
-                {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
-                {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            ],
-            style_data_conditional=[
-                {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'},
-                {'if': {'filter_query': '{processed_estimates} < 0', 'column_id': 'processed_estimates'}, 'color': 'red'},
-                {'if': {'filter_query': '{processed_estimates} > 0', 'column_id': 'processed_estimates'}, 'color': 'green'},
-                {'if': {'column_id': 'strengths'}, 'backgroundColor': 'rgba(0, 255, 0, 0.1)'},
-                {'if': {'column_id': 'weaknesses'}, 'backgroundColor': 'rgba(255, 0, 0, 0.1)'},
-            ],
-            style_header={
-                'backgroundColor': 'rgb(230, 230, 230)',
-                'fontWeight': 'bold',
-                'whiteSpace': 'nowrap',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'fontSize': '15px',
-            },
-            filter_action="native",  # Add this line to enable filtering
-            sort_action="native",
-            sort_mode="single",
-            style_as_list_view=True,
-            row_selectable='single',
-            selected_rows=[],
-            page_action='native',
-            page_size=25,  # Show 25 rows per page
-            page_current=0,  # Start at the first page
-        )
-
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.H4("Top 10 Performers", className="mt-4 mb-3"),
-                create_data_table('top-performers-table', top_performers),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Worst 10 Performers", className="mt-4 mb-3"),
-                create_data_table('worst-performers-table', worst_performers),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Latest 10 Results", className="mt-4 mb-3"),
-                create_data_table('latest-results-table', latest_results),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Stocks Overview", className="mt-4 mb-3"),
-                create_data_table('stocks-table', df),
-            ], md=12),
-        ]),
-    ], fluid=True)
-
-# Portfolio page layout
 def portfolio_layout():
-    # Fetch the data from holdings_collection
     holdings_data = list(holdings_collection.find())
 
     if not holdings_data:
         return html.Div("No portfolio data available.", className="text-danger")
 
-    # Convert the holdings data to a DataFrame
     df = pd.DataFrame(holdings_data)
-
-    # Fetch all the required metrics for each instrument
     metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
-
-    # Function to extract numeric value from strengths and weaknesses
-    def extract_numeric(value):
-        if pd.isna(value) or value == 'NA':
-            return 0
-        try:
-            return int(''.join(filter(str.isdigit, str(value))))
-        except ValueError:
-            return 0
-
-    # Convert strengths and weaknesses to numeric
     metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
     metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
 
-    # Replace 'NA' with suitable default values and convert to appropriate data types
     metrics['net_profit_growth'] = metrics['net_profit_growth'].replace('NA', '0').str.replace('%', '', regex=False).str.replace(',', '', regex=False).astype(float)
     metrics['piotroski_score'] = metrics['piotroski_score'].replace('NA', '0').astype(float)
 
-    # Combine the metrics with the original DataFrame
     df = pd.concat([df, metrics], axis=1)
 
-    # Ensure the column name is consistent
     df.rename(columns={"net_profit_growth": "Net Profit Growth %"}, inplace=True)
 
-    # Fetch estimates data
     estimates_data = fetch_latest_quarter_data()
     estimates_dict = dict(zip(estimates_data['symbol'], estimates_data['estimates']))
     df['Estimates'] = df['Instrument'].map(estimates_dict)
     df['Estimates (%)'] = df['Estimates'].apply(process_estimates)
 
-    # Filter columns to show only relevant ones
     filtered_df = df[['Instrument', 'LTP', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
 
-    # Add a recommendation column based on the criteria
     filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(get_stock_recommendation, axis=1))
 
     table = dash_table.DataTable(
@@ -604,11 +390,11 @@ def portfolio_layout():
             },
             {
                 'if': {'column_id': 'technicals_trend'},
-                'backgroundColor': 'rgba(0, 0, 255, 0.1)'  # Light blue background for technicals_trend
+                'backgroundColor': 'rgba(0, 0, 255, 0.1)'
             },
             {
                 'if': {'column_id': 'Recommendation'},
-                'backgroundColor': 'rgba(0, 255, 0, 0.1)'  # Light green background for Recommendation
+                'backgroundColor': 'rgba(0, 255, 0, 0.1)'
             }
         ]
     )
@@ -640,7 +426,6 @@ def portfolio_layout():
         html.Div(id="portfolio-summary", className="mt-4")
     ])
 
-
 @app.callback(
     Output('stocks-table', 'data'),
     Input('stocks-table', 'sort_by')
@@ -670,7 +455,6 @@ def search_stock(value):
     if value:
         return f"/stock/{value}"
     return dash.no_update
-
 
 @app.callback(
     Output('output-data-upload', 'children'),
@@ -708,14 +492,12 @@ def update_output(contents, filename):
         except Exception as e:
             return html.Div([f'There was an error processing this file: {str(e)}'])
 
-# Callback for dark mode
 @app.callback(
     Output('page-content', 'style'),
     [Input('dark-mode-switch', 'value')]
 )
 def toggle_dark_mode(dark_mode):
-    return {'backgroundColor': '#222', 'color': '#ddd', 'margin-left': '16.666667%'} if dark_mode else {'backgroundColor': '#fff', 'color': '#000', 'margin-left': '16.666667%'}
+    return {'backgroundColor': '#222', 'color': '#ddd', 'marginLeft': '16.666667%'} if dark_mode else {'backgroundColor': '#fff', 'color': '#000', 'marginLeft': '16.666667%'}
 
-# Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
