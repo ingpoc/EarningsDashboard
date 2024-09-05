@@ -476,6 +476,7 @@ def overview_layout():
                 'textOverflow': 'ellipsis',
                 'fontSize': '15px',
             },
+            filter_action="native",  # Add this line to enable filtering
             sort_action="native",
             sort_mode="single",
             style_as_list_view=True,
