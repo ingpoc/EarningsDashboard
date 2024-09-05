@@ -69,11 +69,20 @@ def fetch_stock_data(company_name):
 def fetch_latest_quarter_data():
     stocks = list(collection.find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
     
+    # Fetch portfolio stocks
+    portfolio_stocks = set(holdings_collection.distinct('Instrument'))
+    
+    # Read the SVG file
+    with open('assets/portfolio_indicator.svg', 'r') as f:
+        svg_content = f.read()
+    
+    # Encode the SVG content
+    encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
     
     stock_data = [{
         "company_name": stock['company_name'],
         "symbol": stock['symbol'],
-        "result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
+        "company_name_with_indicator": f'<div style="position: relative; padding-left: 30px;"><img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%);"> {stock["company_name"]}</div>' if stock['symbol'] in portfolio_stocks else f'<div style="padding-left: 30px;">{stock["company_name"]}</div>',"result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
         "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
         "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
         "quarter": latest_metric.get("quarter", "N/A"),
@@ -402,7 +411,7 @@ def process_estimates(estimate_str):
 def overview_layout():
     df = fetch_latest_quarter_data()
 
-    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
+    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')  # Changed back to original format
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
 
     top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
@@ -413,44 +422,68 @@ def overview_layout():
         return dash_table.DataTable(
             id=id,
             columns=[
-                {"name": "Company Name", "id": "company_name"},
-                {"name": "Result Date", "id": "result_date_display"},
-                {"name": "Net Profit Growth (%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "Company Name", "id": "company_name_with_indicator", "presentation": "markdown"},
                 {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+                {"name": "Strengths", "id": "strengths", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                {"name": "Weaknesses", "id": "weaknesses", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+                {"name": "Result Date", "id": "result_date_display"},
                 {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             ],
             data=data.to_dict('records'),
-            sort_action="native",
-            sort_mode="single",
-            style_table={'overflowX': 'auto'},
-            style_cell={'textAlign': 'left', 'padding': '10px'},
+            markdown_options={"html": True},
+            style_table={
+                'overflowX': 'auto',
+                'overflowY': 'hidden',  # Hide vertical scrollbar
+                'minWidth': '100%',
+                'width': '100%',
+            },
+            style_cell={
+                'textAlign': 'left',
+                'padding': '5px',
+                'fontSize': '14px',
+                'whiteSpace': 'nowrap',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'minWidth': '50px',
+                'maxWidth': '180px',
+            },
+            style_cell_conditional=[
+                {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '200px', 'maxWidth': '300px'},
+                {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
+                {'if': {'column_id': 'ttm_pe'}, 'minWidth': '80px', 'maxWidth': '100px'},
+                {'if': {'column_id': 'net_profit'}, 'minWidth': '100px', 'maxWidth': '120px'},
+                {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '120px'},
+                {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
+                {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
+                {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
+                {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            ],
+            style_data_conditional=[
+                {'if': {'row_index': 'odd'}, 'backgroundColor': 'rgb(248, 248, 248)'},
+                {'if': {'filter_query': '{processed_estimates} < 0', 'column_id': 'processed_estimates'}, 'color': 'red'},
+                {'if': {'filter_query': '{processed_estimates} > 0', 'column_id': 'processed_estimates'}, 'color': 'green'},
+                {'if': {'column_id': 'strengths'}, 'backgroundColor': 'rgba(0, 255, 0, 0.1)'},
+                {'if': {'column_id': 'weaknesses'}, 'backgroundColor': 'rgba(255, 0, 0, 0.1)'},
+            ],
             style_header={
                 'backgroundColor': 'rgb(230, 230, 230)',
-                'fontWeight': 'bold'
+                'fontWeight': 'bold',
+                'whiteSpace': 'nowrap',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'fontSize': '15px',
             },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': 'rgb(248, 248, 248)'
-                },
-                {
-                    'if': {
-                        'filter_query': '{processed_estimates} < 0',
-                        'column_id': 'processed_estimates'
-                    },
-                    'color': 'red'
-                },
-                {
-                    'if': {
-                        'filter_query': '{processed_estimates} > 0',
-                        'column_id': 'processed_estimates'
-                    },
-                    'color': 'green'
-                }
-            ],
+            sort_action="native",
+            sort_mode="single",
             style_as_list_view=True,
             row_selectable='single',
             selected_rows=[],
+            page_action='native',
+            page_size=25,  # Show 25 rows per page
+            page_current=0,  # Start at the first page
         )
 
     return dbc.Container([
@@ -478,66 +511,10 @@ def overview_layout():
         dbc.Row([
             dbc.Col([
                 html.H4("Stocks Overview", className="mt-4 mb-3"),
-                dash_table.DataTable(
-                id='stocks-table',
-                columns=[
-                    {"name": "Company Name", "id": "company_name"},
-                    {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                    {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                    {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                    {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                    {"name": "Strengths", "id": "strengths", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                    {"name": "Weaknesses", "id": "weaknesses", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-                    {"name": "Result Date", "id": "result_date_display"},
-                    {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-                ],
-                    data=df.to_dict('records'),
-                    sort_action="native",
-                    filter_action="native",
-                    page_action="native",
-                    page_current=0,
-                    page_size=22,
-                    style_table={'overflowX': 'auto'},
-                    style_cell={'textAlign': 'left', 'padding': '10px'},
-                    style_header={
-                        'backgroundColor': 'rgb(230, 230, 230)',
-                        'fontWeight': 'bold'
-                    },
-                    style_data_conditional=[
-                        {
-                            'if': {'row_index': 'odd'},
-                            'backgroundColor': 'rgb(248, 248, 248)'
-                        },
-                        {
-                            'if': {
-                                'filter_query': '{processed_estimates} < 0',
-                                'column_id': 'processed_estimates'
-                            },
-                            'color': 'red'
-                        },
-                        {
-                            'if': {
-                                'filter_query': '{processed_estimates} > 0',
-                                'column_id': 'processed_estimates'
-                            },
-                            'color': 'green'
-                        },
-                        {
-                            'if': {'column_id': 'strengths'},
-                            'backgroundColor': 'rgba(0, 255, 0, 0.1)'  # Light green background for strengths
-                        },
-                        {
-                            'if': {'column_id': 'weaknesses'},
-                            'backgroundColor': 'rgba(255, 0, 0, 0.1)'  # Light red background for weaknesses
-                        }
-                    ],
-                    style_as_list_view=True,
-                    row_selectable='single',
-                    selected_rows=[],
-                ),
+                create_data_table('stocks-table', df),
             ], md=12),
         ]),
-    ])
+    ], fluid=True)
 
 # Portfolio page layout
 def portfolio_layout():
@@ -669,12 +646,13 @@ def portfolio_layout():
 )
 def update_table(sort_by):
     df = fetch_latest_quarter_data()
-    df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     
     if sort_by and len(sort_by):
         col = sort_by[0]['column_id']
         if col == 'result_date_display':
             col = 'result_date'
+        elif col == 'company_name_with_indicator':
+            col = 'company_name'
         df = df.sort_values(
             col,
             ascending=sort_by[0]['direction'] == 'asc',
@@ -682,7 +660,6 @@ def update_table(sort_by):
         )
     
     return df.to_dict('records')
-
 
 @app.callback(
     Output('url', 'pathname'),
