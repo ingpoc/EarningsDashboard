@@ -1,5 +1,6 @@
 import base64
 from functools import lru_cache
+import io
 import pandas as pd
 from pymongo import MongoClient
 import dash_bootstrap_components as dbc
