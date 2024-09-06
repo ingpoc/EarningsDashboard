@@ -1,14 +1,10 @@
+
 import dash_bootstrap_components as dbc
-from dash import html, dash_table
+from dash import html, dcc, callback_context
 import pandas as pd
-from dash.dash_table.Format import Format, Scheme
 from pymongo import MongoClient
-from util.utils import fetch_latest_quarter_data, process_estimates
-from dash.dependencies import Input, Output, State
-import dash
 from util.utils import parse_numeric_value
 from util.charting import create_financial_metrics_chart, create_stock_price_chart
-from dash import dcc, html, dash_table, callback_context
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
@@ -28,8 +24,9 @@ def stock_details_layout(company_name, show_full_layout=True):
     twitter_button = dbc.Button("Share to Twitter", id="twitter-share-button", color="info", className="mt-3")
     twitter_share_response = html.Div(id='twitter-share-response', className="mt-3")
 
-    # Store selected_data in dcc.Store
-    data_store = dcc.Store(id='selected-data-store', data=selected_data)
+    # Update the global selected-data-store
+    if show_full_layout:
+        dcc.Store(id='selected-data-store', data=selected_data)
 
     if show_full_layout:
         return dbc.Container([
@@ -47,17 +44,14 @@ def stock_details_layout(company_name, show_full_layout=True):
                     dcc.Graph(id='stock-price-chart', figure=create_stock_price_chart(company_name)),
                     dcc.Graph(id='financial-metrics-chart', figure=create_financial_metrics_chart(fetch_stock_data(company_name))),
                 ], label="Charts"),
-                # Uncomment below line to add news tab
-                # dbc.Tab([html.Ul([html.Li(html.A(article['title'], href=article['url'], target="_blank")) for article in fetch_stock_news(company_name)])], label="News"),
             ]),
             html.Br(),
             dbc.Alert(id='recommendation-alert', color="info"),
             twitter_button,
-            twitter_share_response
+            twitter_share_response,
         ], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
 
-    return dbc.Container([financials_layout, twitter_button, twitter_share_response, data_store], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
-
+    return dbc.Container([financials_layout, twitter_button, twitter_share_response], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
 
 def create_financial_segments(selected_data, colors):
     def format_estimate(estimate):
@@ -111,7 +105,6 @@ def create_financial_segments(selected_data, colors):
             for title, items in cards
         ])
     ])
-
 
 
 

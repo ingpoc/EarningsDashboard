@@ -1,6 +1,7 @@
 import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
+from util.utils import get_stock_symbol
 
 def create_market_summary_chart():
     indices = ['S&P 500', 'NASDAQ', 'DOW']
@@ -59,10 +60,19 @@ def create_financial_metrics_chart(df):
     return fig
 
 
+
+
 def create_stock_price_chart(company_name):
-    stock = yf.Ticker(company_name)
+    symbol = get_stock_symbol(company_name)
+    if not symbol:
+        return go.Figure()  # Return an empty figure if symbol is not found
+
+    stock = yf.Ticker(symbol)
     hist = stock.history(period="1y")
     
+    if hist.empty:
+        return go.Figure()  # Return an empty figure if no data is available
+
     fig = go.Figure(data=[go.Candlestick(x=hist.index,
                 open=hist['Open'],
                 high=hist['High'],

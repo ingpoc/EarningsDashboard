@@ -105,6 +105,12 @@ def extract_numeric(value):
     except ValueError:
         return 0
     
+def get_stock_symbol(company_name):
+    stock = collection.find_one({"company_name": company_name})
+    if stock and 'symbol' in stock:
+        return f"{stock['symbol']}.NS"
+    return None
+    
 
     
 

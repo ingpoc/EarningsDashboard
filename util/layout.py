@@ -84,6 +84,7 @@ app_layout = dbc.Container(
         ),
         dcc.Store(id="combined-ipo-store"),
         dcc.Store(id="dark-mode-store"),
+        dcc.Store(id="selected-data-store"),  # Add this line
     ],
     fluid=True,
     style={"height": "100vh", "background-color": "#f0f2f5"}

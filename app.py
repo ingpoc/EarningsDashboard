@@ -9,9 +9,8 @@ from tabs.scraper_tab import scraper_layout, register_scraper_callbacks
 from tabs.community_tab import (
     community_layout,
     settings_layout,
-    register_community_callbacks,
-    register_twitter_callbacks,
-    register_twitter_post_callbacks  
+    register_twitter_callbacks
+      
 )
 from util.utils import get_recommendation  
 
@@ -33,13 +32,12 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_
 
 
 # Register callbacks from other files
-register_community_callbacks(app)
-register_twitter_callbacks(app)
-register_twitter_post_callbacks(app)  
-register_scraper_callbacks(app)
-register_ipo_callbacks(app)  # Register IPO callbacks
 register_overview_callbacks(app)
 register_portfolio_callback(app)
+register_twitter_callbacks(app)
+register_scraper_callbacks(app)
+register_ipo_callbacks(app)  # Register IPO callbacks
+
 
 app.layout = app_layout
 

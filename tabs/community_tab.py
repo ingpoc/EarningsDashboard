@@ -129,35 +129,34 @@ def register_twitter_callbacks(app):
 
         return "No action taken."
      
-
-def register_twitter_post_callbacks(app):
     @app.callback(
         Output('twitter-share-response', 'children'),
         Input('twitter-share-button', 'n_clicks'),
-        State('selected-data-store', 'data'),  # Retrieve data from dcc.Store
-        State('modal-title', 'children')
+        State('selected-data-store', 'data'),
+        State('url', 'pathname')
     )
-    def post_to_twitter(n_clicks, selected_data, company_name):
-        if n_clicks:
-            # selected_data is directly available here as a dict
+    def post_to_twitter(n_clicks, selected_data, pathname):
+        if not n_clicks or not selected_data:
+            return ""
+        
+        company_name = pathname.split("/stock/")[1] if pathname.startswith("/stock/") else "Unknown Company"
+        
+        try:
             tweet_content = format_tweet(selected_data, company_name)
-            print(tweet_content)
             
-            # Post to Twitter (uncomment when ready)
             response = tweet_post(tweet_content)
             
             if 'data' in response:
-                last_tweet_id = response['data']['id']  # Store the tweet ID
-                return f"Tweet posted successfully: {last_tweet_id}"
+                tweet_id = response['data']['id']
+                return f"Tweet posted successfully: {tweet_id}"
             else:
                 return f"Failed to post tweet: {response.get('error', 'Unknown error')}"
         
-        # Return an empty string if no clicks or any other issues
-        return ""
+        except Exception as e:
+            return f"Error posting tweet: {str(e)}"
 
 
-    # Callback for community posts
-def register_community_callbacks(app):
+    
     @app.callback(
         Output('community-feed', 'children'),
         [Input('post-button', 'n_clicks')],
