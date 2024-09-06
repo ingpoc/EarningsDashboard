@@ -26,7 +26,6 @@ from tabs.stock_details_tab import stock_details_layout
 mongo_client = MongoClient('mongodb://localhost:27017/')
 db = mongo_client['stock_data']
 collection = db['detailed_financials']
-holdings_collection = db['holdings']
 
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)

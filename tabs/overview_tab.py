@@ -17,7 +17,39 @@ def overview_layout():
     worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
     latest_results = df.sort_values(by="result_date", ascending=False).head(10)
 
-    def create_data_table(id, data):
+    
+
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.H4("Top 10 Performers", className="mt-4 mb-3"),
+                create_data_table('top-performers-table', top_performers),
+            ], md=12),
+        ]),
+        html.Br(),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Worst 10 Performers", className="mt-4 mb-3"),
+                create_data_table('worst-performers-table', worst_performers),
+            ], md=12),
+        ]),
+        html.Br(),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Latest 10 Results", className="mt-4 mb-3"),
+                create_data_table('latest-results-table', latest_results),
+            ], md=12),
+        ]),
+        html.Br(),
+        dbc.Row([
+            dbc.Col([
+                html.H4("Stocks Overview", className="mt-4 mb-3"),
+                create_data_table('stocks-table', df),
+            ], md=12),
+        ]),
+    ], fluid=True)
+
+def create_data_table(id, data):
         return dash_table.DataTable(
             id=id,
             columns=[
@@ -84,37 +116,7 @@ def overview_layout():
             page_action='native',
             page_size=25,  # Show 25 rows per page
             page_current=0,  # Start at the first page
-        )
-
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.H4("Top 10 Performers", className="mt-4 mb-3"),
-                create_data_table('top-performers-table', top_performers),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Worst 10 Performers", className="mt-4 mb-3"),
-                create_data_table('worst-performers-table', worst_performers),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Latest 10 Results", className="mt-4 mb-3"),
-                create_data_table('latest-results-table', latest_results),
-            ], md=12),
-        ]),
-        html.Br(),
-        dbc.Row([
-            dbc.Col([
-                html.H4("Stocks Overview", className="mt-4 mb-3"),
-                create_data_table('stocks-table', df),
-            ], md=12),
-        ]),
-    ], fluid=True)
+        )    
 
 
 def register_overview_callbacks(app):

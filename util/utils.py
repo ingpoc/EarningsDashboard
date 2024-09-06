@@ -106,6 +106,8 @@ def extract_numeric(value):
         return 0
     
 
+    
+
 def process_estimates(estimate_str):
     if pd.isna(estimate_str) or estimate_str == 'N/A':
         return None
@@ -118,3 +120,28 @@ def process_estimates(estimate_str):
             return None
     except ValueError:
         return None
+    
+
+def fetch_latest_metrics(symbol):
+    stock = collection.find_one({"symbol": symbol})
+    
+    if not stock or not stock.get('financial_metrics'):
+        return {
+            "net_profit_growth": "0",
+            "strengths": "0",
+            "weaknesses": "0",
+            "technicals_trend": "NA",
+            "fundamental_insights": "NA",
+            "piotroski_score": "0"
+        }
+
+    latest_metric = max(stock['financial_metrics'], key=lambda x: pd.to_datetime(x.get("result_date", "N/A")))
+    
+    return {
+        "net_profit_growth": latest_metric.get("net_profit_growth", "0"),
+        "strengths": latest_metric.get("strengths", "0"),
+        "weaknesses": latest_metric.get("weaknesses", "0"),
+        "technicals_trend": latest_metric.get("technicals_trend", "NA"),
+        "fundamental_insights": latest_metric.get("fundamental_insights", "NA"),
+        "piotroski_score": latest_metric.get("piotroski_score", "0")
+    }

@@ -4,7 +4,7 @@ import pandas as pd
 from pymongo import MongoClient
 import dash_bootstrap_components as dbc
 from dash import html
-from util.utils import fetch_latest_quarter_data, process_estimates, get_stock_recommendation
+from util.utils import fetch_latest_quarter_data, process_estimates, get_stock_recommendation, fetch_latest_metrics, extract_numeric
 from dash import dcc, html, dash_table, callback_context
 from dash.dash_table.Format import Format, Scheme
 from dash.dependencies import Input, Output, State
@@ -30,14 +30,8 @@ def portfolio_layout():
     metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
 
     # Function to extract numeric value from strengths and weaknesses
-    def extract_numeric(value):
-        if pd.isna(value) or value == 'NA':
-            return 0
-        try:
-            return int(''.join(filter(str.isdigit, str(value))))
-        except ValueError:
-            return 0
 
+    
     # Convert strengths and weaknesses to numeric
     metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
     metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
@@ -140,29 +134,7 @@ def portfolio_layout():
 
 
 #portfolio
-def fetch_latest_metrics(symbol):
-    stock = collection.find_one({"symbol": symbol})
-    
-    if not stock or not stock.get('financial_metrics'):
-        return {
-            "net_profit_growth": "0",
-            "strengths": "0",
-            "weaknesses": "0",
-            "technicals_trend": "NA",
-            "fundamental_insights": "NA",
-            "piotroski_score": "0"
-        }
 
-    latest_metric = max(stock['financial_metrics'], key=lambda x: pd.to_datetime(x.get("result_date", "N/A")))
-    
-    return {
-        "net_profit_growth": latest_metric.get("net_profit_growth", "0"),
-        "strengths": latest_metric.get("strengths", "0"),
-        "weaknesses": latest_metric.get("weaknesses", "0"),
-        "technicals_trend": latest_metric.get("technicals_trend", "NA"),
-        "fundamental_insights": latest_metric.get("fundamental_insights", "NA"),
-        "piotroski_score": latest_metric.get("piotroski_score", "0")
-    }
 
 
 def register_portfolio_callback(app):

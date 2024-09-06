@@ -14,7 +14,6 @@ from dash import dcc, html, dash_table, callback_context
 mongo_client = MongoClient('mongodb://localhost:27017/')
 db = mongo_client['stock_data']
 collection = db['detailed_financials']
-holdings_collection = db['holdings']
 
 def stock_details_layout(company_name, show_full_layout=True):
     stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
