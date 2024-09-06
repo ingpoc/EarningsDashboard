@@ -22,18 +22,6 @@ def create_sector_performance_chart():
     fig.update_layout(title_x=0.5)
     return fig
 
-def create_stock_price_chart(company_name):
-    stock = yf.Ticker(company_name)
-    hist = stock.history(period="1y")
-    
-    fig = go.Figure(data=[go.Candlestick(x=hist.index,
-                open=hist['Open'],
-                high=hist['High'],
-                low=hist['Low'],
-                close=hist['Close'])])
-    fig.update_layout(title=f'{company_name} Stock Price - Past Year', xaxis_rangeslider_visible=False, title_x=0.5)
-    return fig
-
 def create_financial_metrics_chart(df):
     if df is None or df.empty:
         return go.Figure()
@@ -69,3 +57,18 @@ def create_financial_metrics_chart(df):
         )
     )
     return fig
+
+
+def create_stock_price_chart(company_name):
+    stock = yf.Ticker(company_name)
+    hist = stock.history(period="1y")
+    
+    fig = go.Figure(data=[go.Candlestick(x=hist.index,
+                open=hist['Open'],
+                high=hist['High'],
+                low=hist['Low'],
+                close=hist['Close'])])
+    fig.update_layout(title=f'{company_name} Stock Price - Past Year', xaxis_rangeslider_visible=False, title_x=0.5)
+    return fig
+
+
