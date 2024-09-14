@@ -84,7 +84,7 @@ def stock_details_layout(company_name, show_full_layout=True):
         dbc.Col(create_info_card("Basic Information", basic_info, "fa-info-circle"), width=6),
         dbc.Col(create_info_card("Valuation Metrics", valuation_metrics, "fa-chart-line"), width=6),
         dbc.Col(create_info_card("Financial Performance", financial_performance, "fa-money-bill-wave"), width=6),
-        dbc.Col(create_info_card("Insights", insights, "fa-lightbull"), width=6)
+        dbc.Col(create_info_card("Insights", insights, "fa-lightbulb"), width=6)
     ]
 
     layout = dbc.Container([
