@@ -241,6 +241,7 @@ button.close {
 }
 
 /* Enhanced styling for stock details */
+/* Enhanced styling for stock details */
 .stock-details-card {
     border: none;
     box-shadow: 0 2px 4px rgba(0,0,0,.1);
@@ -291,8 +292,15 @@ button.close {
 
 /* Specific adjustment for longer text in Insights */
 .insights .stock-details-value {
-    max-width: 60%; /* Adjust this value as needed */
+    max-width: 60%;
 }
+
+/* Remove the ::before pseudo-elements for arrows */
+.stock-details-value.text-success::before,
+.stock-details-value.text-danger::before {
+    content: none;
+}
+
 
 
 
