@@ -1,0 +1,11 @@
+dash
+dash-bootstrap-components
+pymongo
+pandas
+plotly
+yfinance
+requests
+beautifulsoup4
+selenium
+tweepy
+python-dotenv

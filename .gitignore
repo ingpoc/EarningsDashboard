@@ -9,5 +9,7 @@ backup/
 
 .env
 
-
-
+venv/
+tabs/__pycache__
+tabs/**/*.pyc
+util/*.p

@@ -27,7 +27,7 @@ db = mongo_client['stock_data']
 collection = db['detailed_financials']
 
 # Initialize Dash app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY, 'https://use.fontawesome.com/releases/v5.8.1/css/all.css'], suppress_callback_exceptions=True)
 
 
 
@@ -102,12 +102,17 @@ def search_stock(value):
 
 # Callback for dark mode
 @app.callback(
-    Output('page-content', 'style'),
-    [Input('dark-mode-switch', 'value')]
+    Output('page-content', 'className'),
+    Output('dark-mode-store', 'data'),
+    Input('dark-mode-switch', 'value'),
+    State('dark-mode-store', 'data')
 )
-def toggle_dark_mode(dark_mode):
-    return {'backgroundColor': '#222', 'color': '#ddd', 'margin-left': '16.666667%'} if dark_mode else {'backgroundColor': '#fff', 'color': '#000', 'margin-left': '16.666667%'}
+def toggle_dark_mode(dark_mode, dark_mode_store):
+    if dark_mode:
+        return 'dark-mode', {'dark_mode': True}
+    return '', {'dark_mode': False}
 
+    
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)
