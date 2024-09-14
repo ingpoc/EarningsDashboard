@@ -1,15 +1,41 @@
 
 import dash_bootstrap_components as dbc
-from dash import html, dcc, callback_context
+from dash import html, dcc
 import pandas as pd
-from pymongo import MongoClient
-from util.utils import parse_numeric_value
 from util.charting import create_financial_metrics_chart, create_stock_price_chart
+from util.utils import parse_numeric_value
+from pymongo import MongoClient
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
 db = mongo_client['stock_data']
 collection = db['detailed_financials']
+
+def create_info_item(label, value, is_percentage=False):
+    color = ""
+    if is_percentage:
+        try:
+            value_float = float(value.strip('%'))
+            if value_float > 0:
+                color = "text-success"
+            elif value_float < 0:
+                color = "text-danger"
+        except ValueError:
+            pass
+    
+    return html.Div([
+        html.Span(label, className="stock-details-label"),
+        html.Span(value, className=f"stock-details-value {color}")
+    ], className="stock-details-item")
+
+def create_info_card(title, items, icon):
+    return dbc.Card([
+        dbc.CardHeader([
+            html.I(className=f"fas {icon} me-2"),
+            html.Span(title, className="h6 mb-0")
+        ], className="d-flex align-items-center py-2"),
+        dbc.CardBody([create_info_item(label, value, 'growth' in label.lower() or 'yield' in label.lower()) for label, value in items], className="py-2")
+    ], className="stock-details-card h-100")
 
 def stock_details_layout(company_name, show_full_layout=True):
     stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
@@ -18,94 +44,76 @@ def stock_details_layout(company_name, show_full_layout=True):
         return html.Div(["Stock not found or no data available."], className="text-danger")
 
     selected_data = stock['financial_metrics'][-1]
-    colors = {'background': '#ffffff', 'text': '#333333', 'primary': '#003366'}
 
-    financials_layout = create_financial_segments(selected_data, colors)
-    twitter_button = dbc.Button("Share to Twitter", id="twitter-share-button", color="info", className="mt-3")
-    twitter_share_response = html.Div(id='twitter-share-response', className="mt-3")
+    basic_info = [
+        ("CMP", f"{selected_data.get('cmp', 'N/A')}"),
+        ("Report Type", selected_data.get('report_type', 'N/A')),
+        ("Result Date", selected_data.get('result_date', 'N/A'))
+    ]
 
-    # Update the global selected-data-store
-    if show_full_layout:
-        dcc.Store(id='selected-data-store', data=selected_data)
+    valuation_metrics = [
+        ("Market Cap", selected_data.get('market_cap', 'N/A')),
+        ("Face Value", selected_data.get('face_value', 'N/A')),
+        ("Book Value", selected_data.get('book_value', 'N/A')),
+        ("Dividend Yield", selected_data.get('dividend_yield', 'N/A')),
+        ("TTM EPS", selected_data.get('ttm_eps', 'N/A')),
+        ("TTM P/E", selected_data.get('ttm_pe', 'N/A')),
+        ("P/B Ratio", selected_data.get('pb_ratio', 'N/A')),
+        ("Sector P/E", selected_data.get('sector_pe', 'N/A'))
+    ]
+
+    financial_performance = [
+        ("Revenue", selected_data.get('revenue', 'N/A')),
+        ("Gross Profit", selected_data.get('gross_profit', 'N/A')),
+        ("Gross Profit Growth", selected_data.get('gross_profit_growth', 'N/A')),
+        ("Revenue Growth", selected_data.get('revenue_growth', 'N/A')),
+        ("Net Profit", selected_data.get('net_profit', 'N/A'))
+    ]
+
+    insights = [
+        ("Strengths", selected_data.get('strengths', 'N/A')),
+        ("Weaknesses", selected_data.get('weaknesses', 'N/A')),
+        ("Technicals Trend", selected_data.get('technicals_trend', 'N/A')),
+        ("Fundamental Insights", selected_data.get('fundamental_insights', 'N/A')),
+        ("Net Profit Growth", selected_data.get('net_profit_growth', 'N/A')),
+        ("Piotroski Score", selected_data.get('piotroski_score', 'N/A')),
+        ("Estimates", selected_data.get('estimates', 'N/A'))
+    ]
+
+    cards = [
+        dbc.Col(create_info_card("Basic Information", basic_info, "fa-info-circle"), width=6),
+        dbc.Col(create_info_card("Valuation Metrics", valuation_metrics, "fa-chart-line"), width=6),
+        dbc.Col(create_info_card("Financial Performance", financial_performance, "fa-money-bill-wave"), width=6),
+        dbc.Col(create_info_card("Insights", insights, "fa-lightbull"), width=6)
+    ]
+
+    layout = dbc.Container([
+        dbc.Row(cards, className="g-2"),
+        dbc.Button("Share to Twitter", id="twitter-share-button", color="primary", className="mt-3 rounded-pill"),
+        html.Div(id='twitter-share-response', className="mt-3")
+    ], fluid=True, className="py-2")
 
     if show_full_layout:
         return dbc.Container([
-            html.H3(f"Details for {company_name}", className="mb-4 text-center", style={'color': colors['primary']}),
+            html.H3(f"Details for {company_name}", className="mb-3 text-center text-primary font-weight-bold"),
             dcc.Dropdown(
                 id='quarter-dropdown',
                 options=[{'label': quarter, 'value': quarter} for quarter in [selected_data['quarter']]],
                 value=selected_data['quarter'],
                 clearable=False,
-                style={'width': '50%', 'margin': '0 auto', 'marginBottom': '20px'}
+                className="mb-3 w-50 mx-auto"
             ),
             dbc.Tabs([
-                dbc.Tab(financials_layout, label="Financials"),
+                dbc.Tab(layout, label="Financials", className="border-bottom"),
                 dbc.Tab([
                     dcc.Graph(id='stock-price-chart', figure=create_stock_price_chart(company_name)),
                     dcc.Graph(id='financial-metrics-chart', figure=create_financial_metrics_chart(fetch_stock_data(company_name))),
-                ], label="Charts"),
-            ]),
-            html.Br(),
-            dbc.Alert(id='recommendation-alert', color="info"),
-            twitter_button,
-            twitter_share_response,
-        ], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
+                ], label="Charts", className="border-bottom"),
+            ], className="mb-3"),
+            dbc.Alert(id='recommendation-alert', color="info", className="mb-3"),
+        ], fluid=True, className="bg-light p-3 rounded shadow-sm")
 
-    return dbc.Container([financials_layout, twitter_button, twitter_share_response], fluid=True, style={'backgroundColor': colors['background'], 'padding': '20px'})
-
-def create_financial_segments(selected_data, colors):
-    def format_estimate(estimate):
-        if 'Beat' in estimate:
-            return html.Span(estimate, style={'color': 'green'})
-        elif 'Missed' in estimate:
-            return html.Span(estimate, style={'color': 'red'})
-        else:
-            return estimate
-
-    cards = [
-        ("Basic Information", [
-            f"CMP: {selected_data.get('cmp', 'N/A')}",
-            f"Report Type: {selected_data.get('report_type', 'N/A')}",
-            f"Result Date: {selected_data.get('result_date', 'N/A')}"
-        ]),
-        ("Valuation Metrics", [
-            f"Market Cap: {selected_data.get('market_cap', 'N/A')}",
-            f"Face Value: {selected_data.get('face_value', 'N/A')}",
-            f"Book Value: {selected_data.get('book_value', 'N/A')}",
-            f"Dividend Yield: {selected_data.get('dividend_yield', 'N/A')}",
-            f"TTM EPS: {selected_data.get('ttm_eps', 'N/A')}",
-            f"TTM P/E: {selected_data.get('ttm_pe', 'N/A')}",
-            f"P/B Ratio: {selected_data.get('pb_ratio', 'N/A')}",
-            f"Sector P/E: {selected_data.get('sector_pe', 'N/A')}"
-        ]),
-        ("Financial Performance", [
-            f"Revenue: {selected_data.get('revenue', 'N/A')}",
-            f"Gross Profit: {selected_data.get('gross_profit', 'N/A')}",
-            f"Gross Profit Growth: {selected_data.get('gross_profit_growth', 'N/A')}",
-            f"Revenue Growth: {selected_data.get('revenue_growth', 'N/A')}",
-            f"Net Profit: {selected_data.get('net_profit', 'N/A')}"
-        ]),
-        ("Insights", [
-            f"Strengths: {selected_data.get('strengths', 'N/A')}",
-            f"Weaknesses: {selected_data.get('weaknesses', 'N/A')}",
-            f"Technicals Trend: {selected_data.get('technicals_trend', 'N/A')}",
-            f"Fundamental Insights: {selected_data.get('fundamental_insights', 'N/A')}",
-            f"Net Profit Growth: {selected_data.get('net_profit_growth', 'N/A')}",
-            f"Piotroski Score: {selected_data.get('piotroski_score', 'N/A')}",
-            html.Span(["Estimates: ", format_estimate(selected_data.get('estimates', 'N/A'))])
-        ])
-    ]
-
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col(dbc.Card([
-                dbc.CardHeader(html.H5(title, className="mb-0")),
-                dbc.CardBody([html.P(item, className="mb-1") for item in items])
-            ], className="mb-4 shadow-sm"), width=6) 
-            for title, items in cards
-        ])
-    ])
-
+    return layout
 
 
 def fetch_stock_data(company_name):

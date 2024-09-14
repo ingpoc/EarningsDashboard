@@ -31,7 +31,11 @@ def overview_layout():
             dbc.Tab(label="All Stocks", children=[
                 create_data_card("Stocks Overview", 'stocks-table', df)
             ]),
-        ]),
+        ], className="mb-4"),
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle(id="overview-modal-title", className="text-primary")),
+            dbc.ModalBody(id="overview-details-body", className="p-0"),
+        ], id="overview-details-modal", size="lg", scrollable=True),
     ], fluid=True)
 
 def create_data_card(title, table_id, data):
@@ -115,19 +119,19 @@ def create_data_table(id, data):
 def register_overview_callbacks(app):
     @app.callback(
         [Output('overview-details-modal', 'is_open'),
-        Output('overview-details-body', 'children'),
-        Output('modal-title', 'children')],
+         Output('overview-details-body', 'children'),
+         Output('overview-modal-title', 'children')],
         [Input('stocks-table', 'selected_rows'),
-        Input('top-performers-table', 'selected_rows'),
-        Input('worst-performers-table', 'selected_rows'),
-        Input('latest-results-table', 'selected_rows')],
+         Input('top-performers-table', 'selected_rows'),
+         Input('worst-performers-table', 'selected_rows'),
+         Input('latest-results-table', 'selected_rows')],
         [State('stocks-table', 'data'),
-        State('top-performers-table', 'data'),
-        State('worst-performers-table', 'data'),
-        State('latest-results-table', 'data')]
+         State('top-performers-table', 'data'),
+         State('worst-performers-table', 'data'),
+         State('latest-results-table', 'data')]
     )
     def display_overview_details(stocks_selected, top_selected, worst_selected, latest_selected,
-                                stocks_data, top_data, worst_data, latest_data):
+                                 stocks_data, top_data, worst_data, latest_data):
         ctx = dash.callback_context
         if not ctx.triggered:
             return False, "", ""
@@ -147,7 +151,7 @@ def register_overview_callbacks(app):
 
         company_name = row['company_name']
         stock_details = stock_details_layout(company_name, show_full_layout=False)
-        return True, stock_details, f"Stock Details of {company_name}"
+        return True, stock_details, f"Stock Details: {company_name}"
 
     @app.callback(
         Output('stocks-table', 'data'),
