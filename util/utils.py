@@ -13,8 +13,12 @@ holdings_collection = db['holdings']
 
 # Utility function for fetching stock names
 def fetch_stock_names(collection):
-    stocks = collection.find({}, {"company_name": 1})
-    return [stock['company_name'] for stock in stocks]
+    try:
+        stocks = collection.find({}, {"company_name": 1})
+        return [stock['company_name'] for stock in stocks if 'company_name' in stock]
+    except Exception as e:
+        print(f"Error fetching stock names: {str(e)}")
+        return []
 
 # Utility function for converting strings to numeric values
 def parse_numeric_value(value, remove_chars='%'):
@@ -138,7 +142,24 @@ def fetch_latest_metrics(symbol):
             "weaknesses": "0",
             "technicals_trend": "NA",
             "fundamental_insights": "NA",
-            "piotroski_score": "0"
+            "piotroski_score": "0",
+            "market_cap": "NA",
+            "face_value": "NA",
+            "book_value": "NA",
+            "dividend_yield": "NA",
+            "ttm_pe": "NA",
+            "revenue": "NA",
+            "net_profit": "NA",
+            "cmp": "NA",
+            "report_type": "NA",
+            "result_date": "NA",
+            "gross_profit": "NA",
+            "gross_profit_growth": "NA",
+            "revenue_growth": "NA",
+            "ttm_eps": "NA",
+            "pb_ratio": "NA",
+            "sector_pe": "NA",
+            "estimates": "NA"
         }
 
     latest_metric = max(stock['financial_metrics'], key=lambda x: pd.to_datetime(x.get("result_date", "N/A")))
@@ -149,5 +170,22 @@ def fetch_latest_metrics(symbol):
         "weaknesses": latest_metric.get("weaknesses", "0"),
         "technicals_trend": latest_metric.get("technicals_trend", "NA"),
         "fundamental_insights": latest_metric.get("fundamental_insights", "NA"),
-        "piotroski_score": latest_metric.get("piotroski_score", "0")
+        "piotroski_score": latest_metric.get("piotroski_score", "0"),
+        "market_cap": latest_metric.get("market_cap", "NA"),
+        "face_value": latest_metric.get("face_value", "NA"),
+        "book_value": latest_metric.get("book_value", "NA"),
+        "dividend_yield": latest_metric.get("dividend_yield", "NA"),
+        "ttm_pe": latest_metric.get("ttm_pe", "NA"),
+        "revenue": latest_metric.get("revenue", "NA"),
+        "net_profit": latest_metric.get("net_profit", "NA"),
+        "cmp": latest_metric.get("cmp", "NA"),
+        "report_type": latest_metric.get("report_type", "NA"),
+        "result_date": latest_metric.get("result_date", "NA"),
+        "gross_profit": latest_metric.get("gross_profit", "NA"),
+        "gross_profit_growth": latest_metric.get("gross_profit_growth", "NA"),
+        "revenue_growth": latest_metric.get("revenue_growth", "NA"),
+        "ttm_eps": latest_metric.get("ttm_eps", "NA"),
+        "pb_ratio": latest_metric.get("pb_ratio", "NA"),
+        "sector_pe": latest_metric.get("sector_pe", "NA"),
+        "estimates": latest_metric.get("estimates", "NA")
     }
