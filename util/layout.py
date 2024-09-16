@@ -12,7 +12,7 @@ collection = db['detailed_financials']
 sidebar = dbc.Col(
     [
         html.Div([
-            html.H2("Earnings Dashboard", className="display-4 text-primary"),
+            html.H2("Earnings Dashboard", className="display-6 text-primary"),
             html.Hr(),
             dcc.Dropdown(
                 id='stock-search-sidebar',
