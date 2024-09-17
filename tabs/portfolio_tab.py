@@ -178,11 +178,11 @@ def create_portfolio_table(df):
 
 def register_portfolio_callback(app):
     @app.callback(
-        Output('details-modal', 'is_open'),
-        Output('details-body', 'children'),
-        [Input('portfolio-table', 'selected_rows')],
-        [State('portfolio-table', 'data')]
-    )
+    Output('details-modal', 'is_open'),
+    Output('details-body', 'children'),
+    [Input('portfolio-table', 'selected_rows')],
+    [State('portfolio-table', 'data')]
+)
     def display_details(selected_rows, rows):
         if not selected_rows:
             return False, []
@@ -200,34 +200,39 @@ def register_portfolio_callback(app):
                     ("Avg Cost", f"₹{holding.get('Avg. cost', 'N/A')}"),
                     ("Current Value", f"₹{holding.get('Cur. val', 'N/A')}"),
                     ("P&L", f"₹{holding.get('P&L', 'N/A')}"),
+                    ("CMP", stock_details.get('cmp', 'N/A')),
+                    ("Report Type", stock_details.get('report_type', 'N/A')),
+                    ("Result Date", stock_details.get('result_date', 'N/A'))
                 ], "fa-info-circle"), width=6),
                 dbc.Col(create_info_card("Valuation Metrics", [
                     ("Market Cap", stock_details.get('market_cap', 'N/A')),
                     ("Face Value", stock_details.get('face_value', 'N/A')),
                     ("Book Value", stock_details.get('book_value', 'N/A')),
                     ("Dividend Yield", stock_details.get('dividend_yield', 'N/A')),
+                    ("TTM EPS", stock_details.get('ttm_eps', 'N/A')),
                     ("TTM P/E", stock_details.get('ttm_pe', 'N/A')),
+                    ("P/B Ratio", stock_details.get('pb_ratio', 'N/A')),
+                    ("Sector P/E", stock_details.get('sector_pe', 'N/A'))
                 ], "fa-chart-line"), width=6),
             ], className="mb-3"),
             dbc.Row([
                 dbc.Col(create_info_card("Financial Performance", [
                     ("Revenue", stock_details.get('revenue', 'N/A')),
-                    ("Net Profit", stock_details.get('net_profit', 'N/A')),
-                    ("Net Profit Growth", stock_details.get('net_profit_growth', 'N/A')),
+                    ("Gross Profit", stock_details.get('gross_profit', 'N/A')),
+                    ("Gross Profit Growth", stock_details.get('gross_profit_growth', 'N/A')),
+                    ("Revenue Growth", stock_details.get('revenue_growth', 'N/A')),
+                    ("Net Profit", stock_details.get('net_profit', 'N/A'))
                 ], "fa-money-bill-wave"), width=6),
                 dbc.Col(create_info_card("Insights", [
                     ("Strengths", stock_details.get('strengths', 'N/A')),
                     ("Weaknesses", stock_details.get('weaknesses', 'N/A')),
                     ("Technicals Trend", stock_details.get('technicals_trend', 'N/A')),
+                    ("Fundamental Insights", stock_details.get('fundamental_insights', 'N/A')),
+                    ("Net Profit Growth", stock_details.get('net_profit_growth', 'N/A')),
                     ("Piotroski Score", stock_details.get('piotroski_score', 'N/A')),
+                    ("Estimates", stock_details.get('estimates', 'N/A'))
                 ], "fa-lightbulb"), width=6),
             ]),
-            dbc.Row([
-                dbc.Col(
-                    dbc.Button("View Full Details", id="view-full-details", color="primary", className="mt-3 w-100"),
-                    width=12
-                )
-            ])
         ])
 
         return True, modal_content

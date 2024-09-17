@@ -240,6 +240,11 @@ button.close {
     margin-top: auto;
 }
 
+.modal-dialog {
+    max-width: 70%; /* Increase the width of the modal */
+    width: 1200px; /* Set a fixed width, adjust as needed */
+}
+
 /* Enhanced styling for stock details */
 /* Enhanced styling for stock details */
 .stock-details-card {
@@ -261,26 +266,44 @@ button.close {
 }
 
 .stock-details-card .card-body {
-    padding: 0.5rem;
+    padding: 0.75rem;
 }
 
 .stock-details-item {
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 0.5rem;
+    white-space: nowrap; /* Prevent wrapping */
 }
 
 .stock-details-label {
     font-weight: 600;
     color: #6c757d;
+    margin-right: 1rem;
 }
 
 .stock-details-value {
-    font-weight: 400;
-    color: #2c3e50;
+    text-align: right;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
+/* Remove multi-line specific styling */
+.stock-details-value.multi-line {
+    display: inline;
+}
+
+.stock-details-value.multi-line span {
+    display: inline;
+}
+
+/* Add some extra spacing for the Insights section */
+.stock-details-card .card-body .insights .stock-details-item {
+    margin-bottom: 0.75rem;
+}
+
 
 .stock-details-value.text-success {
     color: #28a745 !important;
