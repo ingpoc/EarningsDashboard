@@ -1,3 +1,4 @@
+#tabs/news_tab.py
 import requests
 import subprocess
 import html

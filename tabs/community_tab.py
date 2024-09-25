@@ -1,4 +1,4 @@
-# Community page layout
+#tabs/community_tab.py
 
 import pandas as pd
 import requests

@@ -1,4 +1,5 @@
 
+#tabs/stock_details_tab.py
 import dash_bootstrap_components as dbc
 from dash import html, dcc
 import pandas as pd
