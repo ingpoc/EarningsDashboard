@@ -1,10 +1,10 @@
-#util/utils.py
 import base64
 from functools import lru_cache
 import pandas as pd
 from pymongo import MongoClient
 import dash_bootstrap_components as dbc
 from dash import html
+import numpy as np
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
@@ -84,23 +84,33 @@ def fetch_latest_quarter_data():
     # Encode the SVG content
     encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
     
-    stock_data = [{
-        "company_name": stock['company_name'],
-        "symbol": stock['symbol'],
-        "company_name_with_indicator": f'<div style="position: relative; padding-left: 30px;"><img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%);"> {stock["company_name"]}</div>' if stock['symbol'] in portfolio_stocks else f'<div style="padding-left: 30px;">{stock["company_name"]}</div>',"result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
-        "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
-        "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
-        "quarter": latest_metric.get("quarter", "N/A"),
-        "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
-        "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
-        "estimates": latest_metric.get("estimates", "N/A"),
-        "strengths": extract_numeric(latest_metric.get("strengths", "0")),
-        "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0"))
-    } for stock in stocks for latest_metric in stock['financial_metrics']]
+    stock_data = []
+    for stock in stocks:
+        latest_metric = stock['financial_metrics'][0]
+        company_name = stock['company_name']
+        symbol = stock.get('symbol', 'N/A')
+        in_portfolio = symbol in portfolio_stocks
+        indicator = f'<img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24">' if in_portfolio else ''
+        company_name_with_indicator = f'{indicator} {company_name}'
+        
+        stock_data.append({
+            "company_name": company_name,
+            "symbol": symbol,
+            "company_name_with_indicator": company_name_with_indicator,
+            "result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
+            "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
+            "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
+            "quarter": latest_metric.get("quarter", "N/A"),
+            "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
+            "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
+            "estimates": latest_metric.get("estimates", "N/A"),
+            "strengths": extract_numeric(latest_metric.get("strengths", "0")),
+            "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0"))
+        })
     
     df = pd.DataFrame(stock_data)
     df = df.sort_values(by="result_date", ascending=False)
-    return df    
+    return df
 
 def extract_numeric(value):
     if pd.isna(value) or value == 'NA':
@@ -109,15 +119,12 @@ def extract_numeric(value):
         return int(''.join(filter(str.isdigit, str(value))))
     except ValueError:
         return 0
-    
+
 def get_stock_symbol(company_name):
     stock = collection.find_one({"company_name": company_name})
     if stock and 'symbol' in stock:
         return f"{stock['symbol']}.NS"
     return None
-    
-
-    
 
 def process_estimates(estimate_str):
     if pd.isna(estimate_str) or estimate_str == 'N/A':
@@ -131,7 +138,6 @@ def process_estimates(estimate_str):
             return None
     except ValueError:
         return None
-    
 
 def fetch_latest_metrics(symbol):
     stock = collection.find_one({"symbol": symbol})
@@ -164,7 +170,7 @@ def fetch_latest_metrics(symbol):
         }
 
     latest_metric = max(stock['financial_metrics'], key=lambda x: pd.to_datetime(x.get("result_date", "N/A")))
-    
+
     return {
         "net_profit_growth": latest_metric.get("net_profit_growth", "0"),
         "strengths": latest_metric.get("strengths", "0"),

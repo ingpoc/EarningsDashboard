@@ -1,4 +1,3 @@
-#tabs/overview_tab.py
 import dash_bootstrap_components as dbc
 from dash import html, dash_table, dcc
 import pandas as pd
@@ -12,6 +11,8 @@ def overview_layout():
     df = fetch_latest_quarter_data()
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
+
+   
 
     top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
     worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
@@ -65,16 +66,16 @@ def create_data_table(id, data):
         markdown_options={"html": True},
         style_table={
             'overflowX': 'auto',
-                'overflowY': 'hidden',  # Hide vertical scrollbar
-                'minWidth': '100%',
-                'width': '100%',
+            'overflowY': 'hidden',
+            'minWidth': '100%',
+            'width': '100%',
         },
         style_cell={
             'textAlign': 'left',
             'padding': '10px',
             'fontSize': '14px',
             'whiteSpace': 'nowrap',
-            'overflow': 'hidden',  
+            'overflow': 'hidden',
             'fontFamily': '"Segoe UI", Arial, sans-serif',
         },
         style_header={
@@ -136,9 +137,9 @@ def register_overview_callbacks(app):
         ctx = dash.callback_context
         if not ctx.triggered:
             return False, "", ""
-        
+
         triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        
+
         if triggered_id == 'stocks-table' and stocks_selected:
             row = stocks_data[stocks_selected[0]]
         elif triggered_id == 'top-performers-table' and top_selected:
@@ -153,7 +154,7 @@ def register_overview_callbacks(app):
         company_name = row['company_name']
         stock_details = stock_details_layout(company_name, show_full_layout=False)
         return True, stock_details, f"Stock Details: {company_name}"
-
+    
     @app.callback(
         Output('stocks-table', 'data'),
         Input('stocks-table', 'sort_by')

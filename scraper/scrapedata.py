@@ -1,146 +1,80 @@
-#scraper/scrapedata.py
 import sys
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException,StaleElementReferenceException, TimeoutException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException, TimeoutException, WebDriverException
 from bs4 import BeautifulSoup
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 import datetime
 import time
+import logging
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 
-
-# Setup Selenium WebDriver
-service = Service('/usr/bin/chromedriver')
-options = webdriver.ChromeOptions()
-driver = webdriver.Chrome(service=service, options=options)
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # MongoDB setup
-client = MongoClient('mongodb://localhost:27017/')
+client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'))
 db = client['stock_data']
 collection = db['detailed_financials']
 
-def login_to_moneycontrol(url):
-    # Navigate to the login page
-    login_url = f"https://m.moneycontrol.com/login.php?cpurl={url}"
-    driver.get(login_url)
-    
-    
-    # Switch to the iframe containing the login form
-    iframe = WebDriverWait(driver, 20).until(
+def setup_webdriver():
+    service = Service('/usr/bin/chromedriver')
+    options = webdriver.ChromeOptions()
+    return webdriver.Chrome(service=service, options=options)
+
+def login_to_moneycontrol(driver, url):
+    try:
+        login_url = f"https://m.moneycontrol.com/login.php?cpurl={url}"
+        driver.get(login_url)
+        
+        WebDriverWait(driver, 20).until(
             EC.frame_to_be_available_and_switch_to_it((By.ID, "login_frame"))
         )
         
-    # Wait for the page to load and locate the "Login with Password" button
-    WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, '#mc_log_otp_pre > div.loginwithTab > ul > li.signup_ctc'))
-    ).click()
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '#mc_log_otp_pre > div.loginwithTab > ul > li.signup_ctc'))
+        ).click()
 
-    # After clicking "Login with Password," wait for the login fields to appear
-    email_input = WebDriverWait(driver, 20).until(
-        EC.visibility_of_element_located((By.CSS_SELECTOR, '#mc_login > form > div:nth-child(1) > div > input[type=text]'))
-    )
-    password_input = WebDriverWait(driver, 20).until(
-        EC.visibility_of_element_located((By.CSS_SELECTOR, '#mc_login > form > div:nth-child(2) > div > input[type=password]'))
-    )
+        email_input = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, '#mc_login > form > div:nth-child(1) > div > input[type=text]'))
+        )
+        password_input = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, '#mc_login > form > div:nth-child(2) > div > input[type=password]'))
+        )
 
-    # Enter email/mobile number and password
-    email_input.send_keys('gurusharan3107')
-    password_input.send_keys('Rekha@0708')
+        email_input.send_keys(os.getenv('MONEYCONTROL_USERNAME'))
+        password_input.send_keys(os.getenv('MONEYCONTROL_PASSWORD'))
 
-     # Click the login button with the correct selector
-    login_button = driver.find_element(By.CSS_SELECTOR, '#mc_login > form > button.continue.login_verify_btn')
-    login_button.click()
+        login_button = driver.find_element(By.CSS_SELECTOR, '#mc_login > form > button.continue.login_verify_btn')
+        login_button.click()
 
-    # Wait for the "Continue Without Credit Score" button to appear
-    continue_without_credit_score_button = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, '#mc_login > form > button.continue.login_btn'))
-    )
-    
-    # Click the "Continue Without Credit Score" button
-    continue_without_credit_score_button.click()
+        continue_without_credit_score_button = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '#mc_login > form > button.continue.login_btn'))
+        )
+        continue_without_credit_score_button.click()
 
-
-def scrape_moneycontrol_earnings(url):
-    try:
-        print(f"Opening page: {url}")
-        driver.get(url)
-        
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '#latestRes > div > ul > li:nth-child(1)'))
-        )   
-        print("Page opened successfully")
-
-        scroll_pause_time = 2
-        last_height = driver.execute_script("return document.body.scrollHeight")
-
-        while True:
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-            # Wait to load page
-            time.sleep(scroll_pause_time)
-
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.body.scrollHeight")
-            if new_height == last_height:
-                print("Reached end of page or no more content to load.")
-                break
-            last_height = new_height
-
-            # Get page source and parse
-            page_source = driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
-            result_cards = soup.select('li.rapidResCardWeb_gryCard__hQigs')
-            print(f"Found {len(result_cards)} result cards to process")
-
-            for card in result_cards:
-                try:
-                    company_name = card.select_one('h3 a').text.strip() if card.select_one('h3 a') else None
-                    if not company_name:
-                        print("Skipping card due to missing company name.")
-                        continue
-
-                    stock_link = card.select_one('h3 a')['href']
-                    if not stock_link:
-                        print(f"Skipping {company_name} due to missing stock link.")
-                        continue
-
-                    print(f"Processing stock: {company_name}")
-
-                    # Extract data from the card
-                    financial_data = extract_financial_data(card)
-                    
-                    # Check if the company already has data for this quarter
-                    existing_company = collection.find_one({"company_name": company_name})
-                    if existing_company:
-                        existing_quarters = [metric['quarter'] for metric in existing_company['financial_metrics']]
-                        if financial_data['quarter'] in existing_quarters:
-                            print(f"{company_name} already has data for {financial_data['quarter']}. Skipping.")
-                            continue  # Skip to the next iteration of the loop
-                        else:
-                            print(f"Adding new data for {company_name} - {financial_data['quarter']}")
-                            add_new_quarter_data(company_name, financial_data)
-                    else:
-                        print(f"Creating new entry for {company_name}")
-                        create_new_company_entry(company_name, financial_data, stock_link)
-
-                    print(f"Data for {company_name} (quarter {financial_data['quarter']}) processed successfully.")
-
-                except Exception as e:
-                    print(f"Error processing {company_name}: {str(e)}")
-
-    except TimeoutException:
-        print("Timeout waiting for page to load")
-    except WebDriverException as e:
-        print(f"WebDriver error: {str(e)}")
+        logger.info("Successfully logged in to MoneyControl")
     except Exception as e:
-        print(f"Unexpected error during scraping: {str(e)}")
-    finally:
-        driver.quit()
+        logger.error(f"Error during login: {str(e)}")
+        raise
+
+def scroll_page(driver):
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    while True:
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:
+            break
+        last_height = new_height
 
 def extract_financial_data(card):
     return {
@@ -156,42 +90,14 @@ def extract_financial_data(card):
         "report_type": card.select_one('p.rapidResCardWeb_bottomText__p8YzI').text.strip() if card.select_one('p.rapidResCardWeb_bottomText__p8YzI') else None,
     }
 
-def update_existing_data(company_name, financial_data):
-    collection.update_one(
-        {"company_name": company_name, "financial_metrics.quarter": financial_data['quarter']},
-        {"$set": {f"financial_metrics.$.{k}": v for k, v in financial_data.items() if v is not None}}
-    )
-
-def add_new_quarter_data(company_name, financial_data):
-    collection.update_one(
-        {"company_name": company_name},
-        {"$push": {"financial_metrics": financial_data}}
-    )
-
-def create_new_company_entry(company_name, financial_data, stock_link):
-    # Scrape additional financial metrics
-    additional_metrics, symbol = scrape_financial_metrics(stock_link)
-    if additional_metrics:
-        financial_data.update(additional_metrics)
-    
-    stock_data = {
-        "company_name": company_name,
-        "symbol": symbol,
-        "financial_metrics": [financial_data],
-        "timestamp": datetime.datetime.utcnow()
-    }
-    collection.insert_one(stock_data)
-
-def scrape_financial_metrics(stock_link):
+def scrape_financial_metrics(driver, stock_link):
     try:
-        # Open the stock link in a new tab
         driver.execute_script(f"window.open('{stock_link}', '_blank');")
         driver.switch_to.window(driver.window_handles[-1])
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'body')))
         
         detailed_soup = BeautifulSoup(driver.page_source, 'html.parser')
         
-        # Extract metrics (your existing extraction logic here)
         metrics = {
             "market_cap": detailed_soup.select_one('tr:nth-child(7) td.nsemktcap.bsemktcap').text.strip() if detailed_soup.select_one('tr:nth-child(7) td.nsemktcap.bsemktcap') else None,
             "face_value": detailed_soup.select_one('tr:nth-child(7) td.nsefv.bsefv').text.strip() if detailed_soup.select_one('tr:nth-child(7) td.nsefv.bsefv') else None,
@@ -212,31 +118,179 @@ def scrape_financial_metrics(stock_link):
             "fundamental_insights_description": detailed_soup.select_one('#insight_class').text.strip() if detailed_soup.select_one('#insight_class') else None
         }
 
-        # Extract symbol
         symbol = detailed_soup.select_one('#company_info > ul > li:nth-child(5) > ul > li:nth-child(2) > p').text.strip() if detailed_soup.select_one('#company_info > ul > li:nth-child(5) > ul > li:nth-child(2) > p') else None
 
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
 
         return metrics, symbol
-    
     except Exception as e:
-        print(f"Error scraping financial metrics: {str(e)}")
+        logger.error(f"Error scraping financial metrics: {str(e)}")
         return None, None
 
+def process_result_card(card, driver):
+    try:
+        company_name = card.select_one('h3 a').text.strip() if card.select_one('h3 a') else None
+        if not company_name:
+            logger.warning("Skipping card due to missing company name.")
+            return
+
+        stock_link = card.select_one('h3 a')['href']
+        if not stock_link:
+            logger.warning(f"Skipping {company_name} due to missing stock link.")
+            return
+
+        logger.info(f"Processing stock: {company_name}")
+
+        financial_data = extract_financial_data(card)
+        additional_metrics, symbol = scrape_financial_metrics(driver, stock_link)
+        
+        if additional_metrics:
+            financial_data.update(additional_metrics)
+
+        existing_company = collection.find_one({"company_name": company_name})
+        if existing_company:
+            existing_quarters = [metric['quarter'] for metric in existing_company['financial_metrics']]
+            if financial_data['quarter'] in existing_quarters:
+                logger.info(f"{company_name} already has data for {financial_data['quarter']}. Skipping.")
+                return
+            else:
+                logger.info(f"Adding new data for {company_name} - {financial_data['quarter']}")
+                collection.update_one(
+                    {"company_name": company_name},
+                    {"$push": {"financial_metrics": financial_data}}
+                )
+        else:
+            logger.info(f"Creating new entry for {company_name}")
+            stock_data = {
+                "company_name": company_name,
+                "symbol": symbol,
+                "financial_metrics": [financial_data],
+                "timestamp": datetime.datetime.utcnow()
+            }
+            collection.insert_one(stock_data)
+
+        logger.info(f"Data for {company_name} (quarter {financial_data['quarter']}) processed successfully.")
+
+    except Exception as e:
+        logger.error(f"Error processing {company_name}: {str(e)}")
+
+def scrape_moneycontrol_earnings(url):
+    driver = setup_webdriver()
+    try:
+        login_to_moneycontrol(driver, url)
+        logger.info(f"Opening page: {url}")
+        driver.get(url)
+        
+        WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '#latestRes > div > ul > li:nth-child(1)'))
+        )   
+        logger.info("Page opened successfully")
+
+        scroll_page(driver)
+
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+        result_cards = soup.select('li.rapidResCardWeb_gryCard__hQigs')
+        logger.info(f"Found {len(result_cards)} result cards to process")
+
+        for card in result_cards:
+            process_result_card(card, driver)
+
+    except TimeoutException:
+        logger.error("Timeout waiting for page to load")
+    except WebDriverException as e:
+        logger.error(f"WebDriver error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during scraping: {str(e)}")
+    finally:
+        driver.quit()
+
+def process_estimate_card(card):
+    try:
+        company_name = card.find_element(By.CSS_SELECTOR, 'h3 a').text.strip()
+        quarter = card.find_element(By.CSS_SELECTOR, 'tr th:nth-child(1)').text.strip()
+        estimates_line = card.find_element(By.CSS_SELECTOR, 'div.EastimateCard_botTxtCen__VpdiR').text.strip()
+        cmp = card.find_element(By.CSS_SELECTOR, 'p.EastimateCard_priceTxt__8EImd').text.strip()
+        result_date = card.find_element(By.CSS_SELECTOR, 'p.EastimateCard_gryTxtOne__jmUR2').text.strip()
+        logger.info(f"Processing: {company_name}, Quarter: {quarter}, Estimates: {estimates_line}")
+
+        default_financial_data = {
+            "quarter": quarter,
+            "estimates": estimates_line,
+            "cmp": cmp,
+            "revenue": "0",
+            "gross_profit": "0",
+            "net_profit": "0",
+            "net_profit_growth": "0%",
+            "gross_profit_growth": "0%",
+            "revenue_growth": "0%",
+            "result_date": result_date,
+            "report_type": "NA",
+            "market_cap": "NA",
+            "face_value": "NA",
+            "book_value": "NA",
+            "dividend_yield": "NA",
+            "ttm_eps": "NA",
+            "ttm_pe": "NA",
+            "pb_ratio": "NA",
+            "sector_pe": "NA",
+            "piotroski_score": "NA",
+            "revenue_growth_3yr_cagr": "NA",
+            "net_profit_growth_3yr_cagr": "NA",
+            "operating_profit_growth_3yr_cagr": "NA",
+            "strengths": "NA",
+            "weaknesses": "NA",
+            "technicals_trend": "NA",
+            "fundamental_insights": "NA",
+            "fundamental_insights_description": "NA"
+        }
+        update_or_insert_company_data(company_name, quarter, default_financial_data)
+
+    except StaleElementReferenceException:
+        logger.warning("Stale element encountered. Skipping this card.")
+    except Exception as e:
+        logger.error(f"Error processing estimates for {company_name}: {e}")
+
+def update_or_insert_company_data(company_name, quarter, financial_data):
+    existing_company = collection.find_one({"company_name": company_name})
+    if existing_company:
+        existing_quarters = [metric['quarter'] for metric in existing_company['financial_metrics']]
+        if quarter in existing_quarters:
+            collection.update_one(
+                {"company_name": company_name, "financial_metrics.quarter": quarter},
+                {"$set": {"financial_metrics.$.estimates": financial_data['estimates']}}
+            )
+            logger.info(f"Updated estimates for {company_name} - {quarter}")
+        else:
+            collection.update_one(
+                {"company_name": company_name},
+                {"$push": {"financial_metrics": financial_data}}
+            )
+            logger.info(f"Added new quarter data for {company_name} - {quarter}")
+    else:
+        new_company = {
+            "company_name": company_name,
+            "symbol": "NA",
+            "financial_metrics": [financial_data],
+            "timestamp": datetime.datetime.utcnow()
+        }
+        collection.insert_one(new_company)
+        logger.info(f"Created new entry for {company_name}")
 
 def scrape_estimates_vs_actuals(url):
+    driver = setup_webdriver()
     try:
-        print(f"Opening page: {url}")
+        login_to_moneycontrol(driver, url)
+        logger.info(f"Opening page: {url}")
         driver.get(url)
         
         WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, '#estVsAct > div > ul > li:nth-child(1)'))
         )   
-        print("Page opened successfully")
+        logger.info("Page opened successfully")
 
         last_card_count = 0
-        scroll_pause_time = 1
         no_new_content_count = 0
         max_no_new_content = 3
 
@@ -246,115 +300,46 @@ def scrape_estimates_vs_actuals(url):
             if len(estimate_cards) == last_card_count:
                 no_new_content_count += 1
                 if no_new_content_count >= max_no_new_content:
-                    print(f"No new content after {max_no_new_content} scrolls. Ending scrape.")
+                    logger.info(f"No new content after {max_no_new_content} scrolls. Ending scrape.")
                     break
             else:
                 no_new_content_count = 0
        
             for card in estimate_cards[last_card_count:]:
-                try:
-                    company_name = card.find_element(By.CSS_SELECTOR, 'h3 a').text.strip()
-                    quarter = card.find_element(By.CSS_SELECTOR, 'tr th:nth-child(1)').text.strip()
-                    estimates_line = card.find_element(By.CSS_SELECTOR, 'div.EastimateCard_botTxtCen__VpdiR').text.strip()
-                    cmp =  card.find_element(By.CSS_SELECTOR, 'p.EastimateCard_priceTxt__8EImd').text.strip()
-                    result_date =  card.find_element(By.CSS_SELECTOR, 'p.EastimateCard_gryTxtOne__jmUR2').text.strip()
-                    print(f"Processing: {company_name}, Quarter: {quarter}, Estimates: {estimates_line}")
-
-                    # Prepare default financial data
-                    default_financial_data = {
-                        "quarter": quarter,
-                        "estimates": estimates_line,
-                        "cmp": cmp,
-                        "revenue": "0",
-                        "gross_profit": "0",
-                        "net_profit": "0",
-                        "net_profit_growth": "0%",
-                        "gross_profit_growth": "0%",
-                        "revenue_growth": "0%",
-                        "result_date": result_date,
-                        "report_type": "NA",
-                        "market_cap": "NA",
-                        "face_value": "NA",
-                        "book_value": "NA",
-                        "dividend_yield": "NA",
-                        "ttm_eps": "NA",
-                        "ttm_pe": "NA",
-                        "pb_ratio": "NA",
-                        "sector_pe": "NA",
-                        "piotroski_score": "NA",
-                        "revenue_growth_3yr_cagr": "NA",
-                        "net_profit_growth_3yr_cagr": "NA",
-                        "operating_profit_growth_3yr_cagr": "NA",
-                        "strengths": "NA",
-                        "weaknesses": "NA",
-                        "technicals_trend": "NA",
-                        "fundamental_insights": "NA",
-                        "fundamental_insights_description": "NA"
-                    }
-
-                    existing_company = collection.find_one({"company_name": company_name})
-                    if existing_company:
-                        existing_quarters = [metric['quarter'] for metric in existing_company['financial_metrics']]
-                        if quarter in existing_quarters:
-                            collection.update_one(
-                                {"company_name": company_name, "financial_metrics.quarter": quarter},
-                                {"$set": {"financial_metrics.$.estimates": estimates_line}}
-                            )
-                            print(f"Updated estimates for {company_name} - {quarter}")
-                        else:
-                            collection.update_one(
-                                {"company_name": company_name},
-                                {"$push": {"financial_metrics": default_financial_data}}
-                            )
-                            print(f"Added new quarter data for {company_name} - {quarter}")
-                    else:
-                        new_company = {
-                            "company_name": company_name,
-                            "symbol": "NA",
-                            "financial_metrics": [default_financial_data],
-                            "timestamp": datetime.datetime.utcnow()
-                        }
-                        collection.insert_one(new_company)
-                        print(f"Created new entry for {company_name}")
-
-                except StaleElementReferenceException:
-                    print("Stale element encountered. Skipping this card.")
-                except Exception as e:
-                    print(f"Error processing estimates: {e}")
+                process_estimate_card(card)
 
             last_card_count = len(estimate_cards)
             driver.execute_script("arguments[0].scrollIntoView();", estimate_cards[-1])
-            time.sleep(scroll_pause_time)
+            time.sleep(1)
 
-            print(f"Processed {last_card_count} cards so far.")
+            logger.info(f"Processed {last_card_count} cards so far.")
 
     except Exception as e:
-        print(f"Error during estimates scraping: {e}")
+        logger.error(f"Error during estimates scraping: {e}")
     finally:
-        print(f"Processed a total of {last_card_count} cards.")
+        logger.info(f"Processed a total of {last_card_count} cards.")
         driver.quit()
 
-
-# Main function
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 3:
-        print("Usage: python3 scrapedata.py <url> <scrape_type>")
-        print("scrape_type options: earnings, estimates")
+        logger.error("Usage: python3 scrapedata.py <url> <scrape_type>")
+        logger.error("scrape_type options: earnings, estimates")
         sys.exit(1)
 
     url = sys.argv[1]
     scrape_type = sys.argv[2]
 
-    # Execute the login function
-    login_to_moneycontrol(url)
+    try:
+        if scrape_type == 'earnings':
+            scrape_moneycontrol_earnings(url)
+        elif scrape_type == 'estimates':
+            scrape_estimates_vs_actuals(url)
+        else:
+            logger.error("Invalid scrape_type. Choose either 'earnings' or 'estimates'.")
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"An error occurred during scraping: {str(e)}")
+        sys.exit(1)
 
-    # After login, continue with scraping based on the scrape_type
-    if scrape_type == 'earnings':
-        scrape_moneycontrol_earnings(url)
-    elif scrape_type == 'estimates':
-        scrape_estimates_vs_actuals(url)
-    else:
-        print("Invalid scrape_type. Choose either 'earnings' or 'estimates'.")
-
-    # Quit the driver when done
-    driver.quit()
+if __name__ == "__main__":
+    main()

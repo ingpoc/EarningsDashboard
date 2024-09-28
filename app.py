@@ -1,10 +1,8 @@
-#app.py
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
 from pymongo import MongoClient
-import pandas as pd
 from tabs.scraper_tab import scraper_layout, register_scraper_callbacks
 from tabs.community_tab import community_layout, settings_layout, register_twitter_callbacks
 from util.utils import get_recommendation
@@ -13,6 +11,12 @@ from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
 from tabs.overview_tab import register_overview_callbacks, overview_layout
 from tabs.portfolio_tab import register_portfolio_callback, portfolio_layout
 from tabs.stock_details_tab import stock_details_layout
+from tabs.settings_tab import settings_layout, register_settings_callbacks
+from tabs.notifications_tab import notifications_layout, register_notifications_callbacks
+
+import threading
+import schedule
+import time
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
@@ -20,7 +24,11 @@ db = mongo_client['stock_data']
 collection = db['detailed_financials']
 
 # Initialize Dash app
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY, 'https://use.fontawesome.com/releases/v5.8.1/css/all.css'], suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[
+    dbc.themes.FLATLY,
+    'https://use.fontawesome.com/releases/v5.8.1/css/all.css'
+], suppress_callback_exceptions=True)
+server = app.server  # For deploying on platforms like Heroku
 
 # Register callbacks from other files
 register_overview_callbacks(app)
@@ -28,6 +36,8 @@ register_portfolio_callback(app)
 register_twitter_callbacks(app)
 register_scraper_callbacks(app)
 register_ipo_callbacks(app)
+register_settings_callbacks(app)
+register_notifications_callbacks(app)
 
 app.layout = dbc.Container([
     dcc.Location(id='url', refresh=False),
@@ -40,7 +50,23 @@ app.layout = dbc.Container([
     dcc.Store(id="combined-ipo-store"),
     dcc.Store(id="dark-mode-store", data={'dark_mode': False}),
     dcc.Store(id="selected-data-store"),
-], fluid=True, className="h-100", style={"backgroundColor": "#f8f9fa"})
+], fluid=True, className="h-100", id="main-container")
+
+# Background task for scheduled scraping
+def run_scheduled_tasks():
+    schedule.every().day.at("18:00").do(scrape_and_update_data)
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
+
+def scrape_and_update_data():
+    from data.scraping import scrape_latest_data
+    latest_data = scrape_latest_data()
+    from database.models import insert_stock_data
+    insert_stock_data(db, latest_data)
+
+# Start background thread
+threading.Thread(target=run_scheduled_tasks, daemon=True).start()
 
 @app.callback(
     Output('page-content', 'children'),
@@ -63,6 +89,8 @@ def display_page(pathname):
             return ipo_layout()
         elif pathname == "/settings":
             return settings_layout()
+        elif pathname == "/notifications":
+            return notifications_layout()
         else:
             return dbc.Container(html.Div(["404 - Page not found"], className="text-danger"), fluid=True)
     except Exception as e:
@@ -79,9 +107,9 @@ def search_stock(value, current_pathname):
     if value:
         try:
             # Validate that the stock exists in your database
-            stock = collection.find_one({"company_name": value})
+            stock = collection.find_one({"company_name": {'$regex': f'^{value}$', '$options': 'i'}})
             if stock:
-                return f"/stock/{value}", ""
+                return f"/stock/{stock['company_name']}", ""
             else:
                 return current_pathname, f"Stock '{value}' not found."
         except Exception as e:

@@ -1,5 +1,3 @@
-
-#tabs/stock_details_tab.py
 import dash_bootstrap_components as dbc
 from dash import html, dcc
 import pandas as pd
@@ -7,22 +5,23 @@ from util.charting import create_financial_metrics_chart, create_stock_price_cha
 from util.utils import parse_numeric_value, fetch_latest_metrics
 from pymongo import MongoClient
 from util.stock_utils import create_info_card
+import plotly.graph_objs as go
+from dash.dependencies import Input, Output, State
 
 # MongoDB connection
 mongo_client = MongoClient('mongodb://localhost:27017/')
 db = mongo_client['stock_data']
 collection = db['detailed_financials']
 
-
-
 def stock_details_layout(company_name, show_full_layout=True):
-    stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
-    
+    stock = collection.find_one({"company_name": company_name})
+
     if not stock or not stock.get('financial_metrics'):
         return html.Div(["Stock not found or no data available."], className="text-danger")
 
     selected_data = stock['financial_metrics'][-1]
 
+    # Prepare data for display
     basic_info = [
         ("CMP", selected_data.get('cmp', 'N/A')),
         ("Report Type", selected_data.get('report_type', 'N/A')),
@@ -65,33 +64,32 @@ def stock_details_layout(company_name, show_full_layout=True):
         dbc.Col(create_info_card("Insights", insights, "fa-lightbulb"), width=6)
     ]
 
+    # Charts
+    stock_price_chart = create_stock_price_chart(company_name)
+    financial_metrics_chart = create_financial_metrics_chart(fetch_stock_data(company_name))
+
+    # Recommendation
+    recommendation = generate_stock_recommendation(selected_data)
+
     layout = dbc.Container([
-        dbc.Row(cards, className="g-2"),
+        html.H3(f"Details for {company_name}", className="mb-3 text-center text-primary font-weight-bold"),
+        dbc.Row(cards, className="g-2 mb-4"),
+        html.H4("Recommendation", className="text-center"),
+        dbc.Alert(recommendation, color="info", className="text-center mb-4"),
+        html.H4("Stock Price Chart", className="text-center"),
+        dcc.Graph(figure=stock_price_chart, className="mb-4"),
+        html.H4("Financial Metrics Chart", className="text-center"),
+        dcc.Graph(figure=financial_metrics_chart),
         dbc.Button("Share to Twitter", id="twitter-share-button", color="primary", className="mt-3 rounded-pill"),
         html.Div(id='twitter-share-response', className="mt-3")
     ], fluid=True, className="py-2")
 
     if show_full_layout:
-        return dbc.Container([
-            html.H3(f"Details for {company_name}", className="mb-3 text-center text-primary font-weight-bold"),
-            dcc.Dropdown(
-                id='quarter-dropdown',
-                options=[{'label': quarter, 'value': quarter} for quarter in [selected_data['quarter']]],
-                value=selected_data['quarter'],
-                clearable=False,
-                className="mb-3 w-50 mx-auto"
-            ),
-            dbc.Tabs([
-                dbc.Tab(layout, label="Financials", className="border-bottom"),
-                dbc.Tab([
-                    dcc.Graph(id='stock-price-chart', figure=create_stock_price_chart(company_name)),
-                    dcc.Graph(id='financial-metrics-chart', figure=create_financial_metrics_chart(fetch_stock_data(company_name))),
-                ], label="Charts", className="border-bottom"),
-            ], className="mb-3"),
-            dbc.Alert(id='recommendation-alert', color="info", className="mb-3"),
-        ], fluid=True, className="bg-light p-3 rounded shadow-sm")
+        return layout
 
-    return layout
+    return dbc.Container([
+        dbc.Row(cards, className="g-2"),
+    ], fluid=True, className="py-2")
 
 def fetch_stock_data(company_name):
     stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
@@ -114,3 +112,35 @@ def fetch_stock_data(company_name):
     } for metric in stock['financial_metrics']]
     
     return pd.DataFrame(stock_data)
+
+def generate_stock_recommendation(selected_data):
+    # Simplified recommendation logic based on P/E Ratio and Net Profit Growth
+    ttm_pe = parse_numeric_value(selected_data.get('ttm_pe'))
+    net_profit_growth = parse_numeric_value(selected_data.get('net_profit_growth'), '%')
+
+    if ttm_pe is not None and net_profit_growth is not None:
+        if ttm_pe < 15 and net_profit_growth > 10:
+            return "Strong Buy"
+        elif ttm_pe < 20 and net_profit_growth > 5:
+            return "Buy"
+        elif ttm_pe > 25 and net_profit_growth < 0:
+            return "Sell"
+        else:
+            return "Hold"
+    else:
+        return "Insufficient data for recommendation"
+
+# Callback to store selected data for sharing
+def register_stock_details_callbacks(app):
+    @app.callback(
+        Output('selected-data-store', 'data'),
+        Input('url', 'pathname')
+    )
+    def store_selected_data(pathname):
+        if pathname.startswith("/stock/"):
+            company_name = pathname.split("/stock/")[1]
+            stock = collection.find_one({"company_name": company_name})
+            if stock and stock.get('financial_metrics'):
+                selected_data = stock['financial_metrics'][-1]
+                return selected_data
+        return {}

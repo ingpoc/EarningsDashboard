@@ -1,6 +1,4 @@
-#tabs/portfolio_tab.py
 import base64
-from functools import lru_cache
 import io
 import pandas as pd
 from pymongo import MongoClient
@@ -8,7 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 from dash.dependencies import Input, Output, State
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_quarter_data, process_estimates, get_stock_recommendation, fetch_latest_metrics, extract_numeric
+from util.utils import fetch_latest_metrics, extract_numeric, get_stock_recommendation
 from util.stock_utils import create_info_card
 
 # MongoDB connection
@@ -20,35 +18,13 @@ holdings_collection = db['holdings']
 def portfolio_layout():
     holdings_data = list(holdings_collection.find())
 
-    if not holdings_data:
-        return html.Div("No portfolio data available.", className="text-danger")
-
-    df = pd.DataFrame(holdings_data)
-    metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
-    
-    metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
-    metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
-    metrics['net_profit_growth'] = metrics['net_profit_growth'].replace('NA', '0').str.replace('%', '', regex=False).str.replace(',', '', regex=False).astype(float)
-    metrics['piotroski_score'] = metrics['piotroski_score'].replace('NA', '0').astype(float)
-
-    df = pd.concat([df, metrics], axis=1)
-    df.rename(columns={"net_profit_growth": "Net Profit Growth %"}, inplace=True)
-
-    estimates_data = fetch_latest_quarter_data()
-    estimates_dict = dict(zip(estimates_data['symbol'], estimates_data['estimates']))
-    df['Estimates'] = df['Instrument'].map(estimates_dict)
-    df['Estimates (%)'] = df['Estimates'].apply(process_estimates)
-
-    filtered_df = df[['Instrument', 'LTP', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
-    filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(get_stock_recommendation, axis=1))
-
     content = html.Div([
         html.H3("Portfolio Management", className="mb-4"),
         dcc.Upload(
             id='upload-data',
             children=html.Div([
                 'Drag and Drop or ',
-                html.A('Select Files')
+                html.A('Select Files', href='#')
             ]),
             style={
                 'width': '100%',
@@ -65,8 +41,11 @@ def portfolio_layout():
         html.Div(id='output-data-upload'),
         html.Br(),
         html.H4("Current Portfolio", className="mb-3"),
-        create_portfolio_table(filtered_df),
-        html.Div(id="portfolio-summary", className="mt-4")
+        html.Div(id='portfolio-table-container'),
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle(id="details-modal-title")),
+            dbc.ModalBody(id="details-body"),
+        ], id="details-modal", size="lg", scrollable=True),
     ])
 
     return dbc.Container(content, fluid=True, className="py-3")
@@ -75,10 +54,8 @@ def create_portfolio_table(df):
     return dash_table.DataTable(
         id='portfolio-table',
         columns=[
-            {"name": i, "id": i, "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)} 
-            if i in ['LTP', 'P&L', 'Net Profit Growth %', 'piotroski_score', 'Estimates (%)'] 
-            else {"name": i, "id": i, "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)} 
-            if i in ['strengths', 'weaknesses']
+            {"name": i, "id": i, "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)}
+            if i in ['LTP', 'P&L', 'Net Profit Growth %', 'piotroski_score', 'Estimates (%)']
             else {"name": i, "id": i}
             for i in df.columns
         ],
@@ -134,59 +111,21 @@ def create_portfolio_table(df):
                 'color': '#dc3545',
                 'fontWeight': 'bold'
             },
-            {
-                'if': {
-                    'filter_query': '{Net Profit Growth %} > 0',
-                    'column_id': 'Net Profit Growth %'
-                },
-                'color': '#28a745',
-                'fontWeight': 'bold'
-            },
-            {
-                'if': {
-                    'filter_query': '{Net Profit Growth %} < 0',
-                    'column_id': 'Net Profit Growth %'
-                },
-                'color': '#dc3545',
-                'fontWeight': 'bold'
-            },
-            {
-                'if': {
-                    'filter_query': '{Estimates (%)} > 0',
-                    'column_id': 'Estimates (%)'
-                },
-                'color': '#28a745',
-                'fontWeight': 'bold'
-            },
-            {
-                'if': {
-                    'filter_query': '{Estimates (%)} < 0',
-                    'column_id': 'Estimates (%)'
-                },
-                'color': '#dc3545',
-                'fontWeight': 'bold'
-            },
-            {
-                'if': {'column_id': 'technicals_trend'},
-                'backgroundColor': 'rgba(0, 0, 255, 0.1)'
-            },
-            {
-                'if': {'column_id': 'Recommendation'},
-                'backgroundColor': 'rgba(0, 255, 0, 0.1)'
-            }
+            # Additional styling rules...
         ],
     )
 
 def register_portfolio_callback(app):
     @app.callback(
-    Output('details-modal', 'is_open'),
-    Output('details-body', 'children'),
-    [Input('portfolio-table', 'selected_rows')],
-    [State('portfolio-table', 'data')]
-)
+        Output('details-modal', 'is_open'),
+        Output('details-body', 'children'),
+        Output('details-modal-title', 'children'),
+        [Input('portfolio-table', 'selected_rows')],
+        [State('portfolio-table', 'data')]
+    )
     def display_details(selected_rows, rows):
         if not selected_rows:
-            return False, []
+            return False, [], ""
 
         row = rows[selected_rows[0]]
         instrument_name = row['Instrument']
@@ -236,14 +175,52 @@ def register_portfolio_callback(app):
             ]),
         ])
 
-        return True, modal_content
+        modal_title = f"Details for {instrument_name}"
+
+        return True, modal_content, modal_title
+
+    @app.callback(
+        Output('portfolio-table-container', 'children'),
+        [Input('output-data-upload', 'children'),
+         Input('upload-data', 'contents'),
+         Input('upload-data', 'filename')]
+    )
+    def update_portfolio_table(output_upload, contents, filename):
+        holdings_data = list(holdings_collection.find())
+
+        if not holdings_data:
+            return html.Div("No portfolio data available.", className="text-danger")
+
+        df = pd.DataFrame(holdings_data)
+        metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
+
+        # Process and clean data
+        metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
+        metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
+        metrics['net_profit_growth'] = metrics['net_profit_growth'].replace('NA', '0').str.replace('%', '', regex=False).str.replace(',', '', regex=False).astype(float)
+        metrics['piotroski_score'] = metrics['piotroski_score'].replace('NA', '0').astype(float)
+        metrics['estimates'] = metrics['estimates'].replace('NA', '0').str.extract(r'([-+]?\d*\.?\d+)', expand=False).astype(float)
+
+        df = pd.concat([df, metrics], axis=1)
+
+        # Rename columns for display
+        df.rename(columns={
+            'net_profit_growth': 'Net Profit Growth %',
+            'estimates': 'Estimates (%)'
+        }, inplace=True)
+
+        # Prepare data for display
+        filtered_df = df[['Instrument', 'LTP', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
+        filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(get_stock_recommendation, axis=1))
+
+        return create_portfolio_table(filtered_df)
 
     @app.callback(
         Output('output-data-upload', 'children'),
         Input('upload-data', 'contents'),
         State('upload-data', 'filename')
     )
-    def update_output(contents, filename):
+    def handle_file_upload(contents, filename):
         if contents is None:
             return html.Div()
 
@@ -252,25 +229,11 @@ def register_portfolio_callback(app):
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
         try:
-            df = pd.read_csv(io.StringIO(decoded.decode('utf-8'))) if 'csv' in filename else pd.read_excel(io.BytesIO(decoded))
+            if 'csv' in filename:
+                df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
+            else:
+                df = pd.read_excel(io.BytesIO(decoded))
             holdings_collection.insert_many(df.to_dict("records"))
-
-            holdings_data = list(holdings_collection.find())
-
-            if not holdings_data:
-                return html.Div("No portfolio data available.", className="text-danger")
-
-            df = pd.DataFrame(holdings_data)
-
-            filtered_df = df[['Instrument', 'Qty.', 'Avg. cost', 'LTP', 'Cur. val', 'P&L']]
-            filtered_df['Recommendation'] = filtered_df.apply(get_stock_recommendation, axis=1)
-
-            return html.Div([
-                html.H5("Uploaded Portfolio Data", className="mt-4 mb-3"),
-                create_portfolio_table(filtered_df)
-            ])
-
+            return html.Div("Portfolio uploaded successfully!", className="text-success")
         except Exception as e:
             return html.Div([f'There was an error processing this file: {str(e)}'], className="text-danger")
-
- 
