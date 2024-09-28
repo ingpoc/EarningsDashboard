@@ -52,21 +52,7 @@ app.layout = dbc.Container([
     dcc.Store(id="selected-data-store"),
 ], fluid=True, className="h-100", id="main-container")
 
-# Background task for scheduled scraping
-def run_scheduled_tasks():
-    schedule.every().day.at("18:00").do(scrape_and_update_data)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
 
-def scrape_and_update_data():
-    from data.scraping import scrape_latest_data
-    latest_data = scrape_latest_data()
-    from database.models import insert_stock_data
-    insert_stock_data(db, latest_data)
-
-# Start background thread
-threading.Thread(target=run_scheduled_tasks, daemon=True).start()
 
 @app.callback(
     Output('page-content', 'children'),
