@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 from dash.dependencies import Input, Output, State
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_metrics, extract_numeric, get_stock_recommendation
+from util.utils import fetch_latest_metrics, extract_numeric, generate_stock_recommendation
 from util.stock_utils import create_info_card
 
 # MongoDB connection
@@ -91,28 +91,45 @@ def create_portfolio_table(df):
             'lineHeight': '15px'
         },
         style_data_conditional=[
-            {
-                'if': {'row_index': 'odd'},
-                'backgroundColor': 'rgb(248, 248, 248)'
+        {
+            'if': {'row_index': 'odd'},
+            'backgroundColor': 'rgb(248, 248, 248)'
+        },
+        {
+            'if': {
+                'filter_query': '{P&L} > 0',
+                'column_id': 'P&L'
             },
-            {
-                'if': {
-                    'filter_query': '{P&L} > 0',
-                    'column_id': 'P&L'
-                },
-                'color': '#28a745',
-                'fontWeight': 'bold'
+            'color': '#28a745',
+            'fontWeight': 'bold'
+        },
+        {
+            'if': {
+                'filter_query': '{P&L} < 0',
+                'column_id': 'P&L'
             },
-            {
-                'if': {
-                    'filter_query': '{P&L} < 0',
-                    'column_id': 'P&L'
-                },
-                'color': '#dc3545',
-                'fontWeight': 'bold'
+            'color': '#dc3545',
+            'fontWeight': 'bold'
+        },
+        {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
+        {
+            'if': {
+                'filter_query': '{Estimates (%)} < 0',
+                'column_id': 'Estimates (%)'
             },
-            # Additional styling rules...
-        ],
+            'color': '#dc3545',  # Red for negative estimates
+        },
+        {
+            'if': {
+                'filter_query': '{Estimates (%)} > 0',
+                'column_id': 'Estimates (%)'
+            },
+            'color': '#28a745',  # Green for positive estimates
+        },
+        {'if': {'column_id': 'strengths'}, 'backgroundColor': 'rgba(40, 167, 69, 0.1)'},
+        {'if': {'column_id': 'weaknesses'}, 'backgroundColor': 'rgba(220, 53, 69, 0.1)'},
+        # Additional styling rules...
+    ],
     )
 
 def register_portfolio_callback(app):
@@ -194,26 +211,116 @@ def register_portfolio_callback(app):
         df = pd.DataFrame(holdings_data)
         metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
 
+        # Define placeholders to replace
+        placeholders = ['NA', '--', 'N/A', '']
+
+        # List of required fields
+        required_fields = [
+            'strengths', 'weaknesses', 'net_profit_growth',
+            'net_profit_growth_3yr_cagr', 'revenue_growth',
+            'revenue_growth_3yr_cagr', 'piotroski_score',
+            'ttm_pe', 'dividend_yield', 'estimates', 'technicals_trend', 'fundamental_insights'
+        ]
+
+        # Ensure all required fields are present
+        for field in required_fields:
+            if field not in metrics.columns:
+                if field == 'dividend_yield':
+                    metrics[field] = '0%'
+                elif field in ['technicals_trend', 'fundamental_insights']:
+                    metrics[field] = 'Neutral'
+                else:
+                    metrics[field] = '0'
+
         # Process and clean data
+
+        # Clean 'strengths' and 'weaknesses'
         metrics['strengths'] = metrics['strengths'].apply(extract_numeric)
         metrics['weaknesses'] = metrics['weaknesses'].apply(extract_numeric)
-        metrics['net_profit_growth'] = metrics['net_profit_growth'].replace('NA', '0').str.replace('%', '', regex=False).str.replace(',', '', regex=False).astype(float)
-        metrics['piotroski_score'] = metrics['piotroski_score'].replace('NA', '0').astype(float)
-        metrics['estimates'] = metrics['estimates'].replace('NA', '0').str.extract(r'([-+]?\d*\.?\d+)', expand=False).astype(float)
 
+        # Clean 'net_profit_growth'
+        metrics['net_profit_growth'] = metrics['net_profit_growth'].replace(placeholders, '0') \
+                                                                .str.replace('%', '', regex=False) \
+                                                                .str.replace(',', '', regex=False) \
+                                                                .astype(float)
+
+        # Clean 'net_profit_growth_3yr_cagr'
+        metrics['net_profit_growth_3yr_cagr'] = metrics['net_profit_growth_3yr_cagr'].replace(placeholders, '0') \
+                                                                            .str.replace('%', '', regex=False) \
+                                                                            .str.replace(',', '', regex=False) \
+                                                                            .astype(float)
+
+        # Clean 'revenue_growth'
+        metrics['revenue_growth'] = metrics['revenue_growth'].replace(placeholders, '0') \
+                                                    .str.replace('%', '', regex=False) \
+                                                    .str.replace(',', '', regex=False) \
+                                                    .astype(float)
+
+        # Clean 'revenue_growth_3yr_cagr'
+        metrics['revenue_growth_3yr_cagr'] = metrics['revenue_growth_3yr_cagr'].replace(placeholders, '0') \
+                                                            .str.replace('%', '', regex=False) \
+                                                            .str.replace(',', '', regex=False) \
+                                                            .astype(float)
+
+        # Clean 'piotroski_score' and ensure it's integer
+        metrics['piotroski_score'] = metrics['piotroski_score'].replace(placeholders, '0') \
+                                                            .fillna('0') \
+                                                            .astype(int)
+
+        # Clean 'ttm_pe'
+        metrics['ttm_pe'] = metrics['ttm_pe'].replace(placeholders, '0') \
+                                            .str.replace(',', '', regex=False) \
+                                            .astype(float)
+
+        # Clean 'dividend_yield'
+        metrics['dividend_yield'] = metrics['dividend_yield'].replace(placeholders, '0') \
+                                                            .str.replace('%', '', regex=False) \
+                                                            .str.replace(',', '', regex=False) \
+                                                            .astype(float)
+
+        # Clean 'technicals_trend'
+        metrics['technicals_trend'] = metrics['technicals_trend'].replace(placeholders, 'Neutral') \
+                                                              .fillna('Neutral') \
+                                                              .astype(str)
+
+        # Clean 'fundamental_insights'
+        metrics['fundamental_insights'] = metrics['fundamental_insights'].replace(placeholders, 'Neutral') \
+                                                                  .fillna('Neutral') \
+                                                                  .astype(str)
+
+        # Clean 'estimates' - Keep as string for pattern matching
+        metrics['estimates'] = metrics['estimates'].replace(placeholders, '0') \
+                                            .str.extract(r'([-+]?\d*\.?\d+)', expand=False) \
+                                            .astype(float)
+
+        # Concatenate df and metrics
         df = pd.concat([df, metrics], axis=1)
 
         # Rename columns for display
         df.rename(columns={
             'net_profit_growth': 'Net Profit Growth %',
+            'ttm_pe': 'TTM P/E',
             'estimates': 'Estimates (%)'
         }, inplace=True)
 
-        # Prepare data for display
-        filtered_df = df[['Instrument', 'LTP', 'P&L', 'Net Profit Growth %', 'strengths', 'weaknesses', 'technicals_trend', 'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
-        filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(get_stock_recommendation, axis=1))
+        # Prepare data for display (including 'TTM P/E')
+        filtered_df = df[['Instrument', 'LTP', 'P&L', 'TTM P/E', 'Net Profit Growth %', 
+                         'strengths', 'weaknesses', 'technicals_trend', 
+                         'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
 
-        return create_portfolio_table(filtered_df)
+        # Apply the consolidated recommendation function
+        filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(generate_stock_recommendation, axis=1))
+
+        # Drop 'TTM P/E' from the display DataFrame
+        display_df = filtered_df.drop(columns=['TTM P/E'])
+
+        # Optionally, print for debugging
+        print("Filtered DataFrame Columns:", filtered_df.columns.tolist())
+        print("Display DataFrame Columns:", display_df.columns.tolist())
+        print("Sample Data:\n", display_df.head())
+
+        return create_portfolio_table(display_df)
+
 
     @app.callback(
         Output('output-data-upload', 'children'),

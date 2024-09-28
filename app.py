@@ -5,7 +5,6 @@ from dash.dependencies import Input, Output, State
 from pymongo import MongoClient
 from tabs.scraper_tab import scraper_layout, register_scraper_callbacks
 from tabs.community_tab import community_layout, settings_layout, register_twitter_callbacks
-from util.utils import get_recommendation
 from util.layout import sidebar, content, details_modal, overview_modal
 from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
 from tabs.overview_tab import register_overview_callbacks, overview_layout

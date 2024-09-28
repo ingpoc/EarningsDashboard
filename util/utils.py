@@ -36,39 +36,44 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
     return data
 
 # Function to generate stock recommendation
-def get_stock_recommendation(row):
-    net_profit_growth = row['Net Profit Growth %']
+def generate_stock_recommendation(data):
+    """
+    Generates a stock recommendation based on TTM P/E Ratio and Net Profit Growth.
 
-    if net_profit_growth > 0:
-        return "Hold"
-    elif net_profit_growth < 0:
-        return "Sell"
+    Parameters:
+    - data (dict or pd.Series): A dictionary or DataFrame row containing 'ttm_pe' and 'net_profit_growth'.
+
+    Returns:
+    - str: Recommendation ("Strong Buy", "Buy", "Sell", "Hold", or "Insufficient data for recommendation")
+    """
+    if isinstance(data, pd.Series):
+        # DataFrame row input
+        ttm_pe = parse_numeric_value(data.get('TTM P/E') or data.get('ttm_pe'))
+        net_profit_growth = parse_numeric_value(data.get('Net Profit Growth %') or data.get('net_profit_growth'), '%')
+    elif isinstance(data, dict):
+        # Selected data dictionary input
+        ttm_pe = parse_numeric_value(data.get('ttm_pe'))
+        net_profit_growth = parse_numeric_value(data.get('net_profit_growth'), '%')
     else:
-        return "Hold"
+        return "Invalid data format"
 
-def get_recommendation(df):
-    if df is None or df.empty:
-        return "No Data Available"
+    # Debugging: Print values to verify
+    print(f"TTM P/E: {ttm_pe}, Net Profit Growth %: {net_profit_growth}")
 
-    # Simple recommendation logic based on growth metrics
-    latest = df.iloc[-1]
-
-    revenue_growth = parse_numeric_value(latest['revenue_growth'], '%')
-    net_profit_growth = parse_numeric_value(latest['net_profit_growth'], '%')
-
-    # Handle cases where conversion fails (NaN values)
-    if pd.isna(revenue_growth) or pd.isna(net_profit_growth):
-        return "No Data Available"
-
-    # Now use the cleaned numeric values for recommendation logic
-    if revenue_growth > 10 and net_profit_growth > 10:
-        return "Strong Buy"
-    elif revenue_growth > 5 and net_profit_growth > 5:
-        return "Buy"
-    elif revenue_growth < 0 or net_profit_growth < 0:
-        return "Sell"
+    if ttm_pe is not None and net_profit_growth is not None:
+        if ttm_pe < 15 and net_profit_growth > 10:
+            return "Strong Buy"
+        elif ttm_pe < 20 and net_profit_growth > 5:
+            return "Buy"
+        elif ttm_pe > 25 and net_profit_growth < 0:
+            return "Sell"
+        else:
+            return "Hold"
     else:
-        return "Hold"
+        return "NA"
+
+
+
 
 @lru_cache(maxsize=32)
 def fetch_latest_quarter_data():

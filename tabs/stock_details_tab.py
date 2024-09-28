@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 import pandas as pd
 from util.charting import create_financial_metrics_chart, create_stock_price_chart
-from util.utils import parse_numeric_value, fetch_latest_metrics
+from util.utils import parse_numeric_value, generate_stock_recommendation
 from pymongo import MongoClient
 from util.stock_utils import create_info_card
 import plotly.graph_objs as go
@@ -67,7 +67,7 @@ def stock_details_layout(company_name, show_full_layout=True):
     # Charts
     stock_price_chart = create_stock_price_chart(company_name)
     financial_metrics_chart = create_financial_metrics_chart(fetch_stock_data(company_name))
-
+    print(selected_data)
     # Recommendation
     recommendation = generate_stock_recommendation(selected_data)
 
@@ -113,22 +113,7 @@ def fetch_stock_data(company_name):
     
     return pd.DataFrame(stock_data)
 
-def generate_stock_recommendation(selected_data):
-    # Simplified recommendation logic based on P/E Ratio and Net Profit Growth
-    ttm_pe = parse_numeric_value(selected_data.get('ttm_pe'))
-    net_profit_growth = parse_numeric_value(selected_data.get('net_profit_growth'), '%')
 
-    if ttm_pe is not None and net_profit_growth is not None:
-        if ttm_pe < 15 and net_profit_growth > 10:
-            return "Strong Buy"
-        elif ttm_pe < 20 and net_profit_growth > 5:
-            return "Buy"
-        elif ttm_pe > 25 and net_profit_growth < 0:
-            return "Sell"
-        else:
-            return "Hold"
-    else:
-        return "Insufficient data for recommendation"
 
 # Callback to store selected data for sharing
 def register_stock_details_callbacks(app):

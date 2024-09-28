@@ -8,7 +8,7 @@ import tweepy
 import os
 from dash import html, callback_context
 from dash.dependencies import Input, Output, State
-from util.utils import  get_recommendation
+
 
 
 TWITTER_CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
