@@ -57,8 +57,7 @@ def generate_stock_recommendation(data):
     else:
         return "Invalid data format"
 
-    # Debugging: Print values to verify
-    print(f"TTM P/E: {ttm_pe}, Net Profit Growth %: {net_profit_growth}")
+    
 
     if ttm_pe is not None and net_profit_growth is not None:
         if ttm_pe < 15 and net_profit_growth > 10:

@@ -314,10 +314,7 @@ def register_portfolio_callback(app):
         # Drop 'TTM P/E' from the display DataFrame
         display_df = filtered_df.drop(columns=['TTM P/E'])
 
-        # Optionally, print for debugging
-        print("Filtered DataFrame Columns:", filtered_df.columns.tolist())
-        print("Display DataFrame Columns:", display_df.columns.tolist())
-        print("Sample Data:\n", display_df.head())
+        
 
         return create_portfolio_table(display_df)
 

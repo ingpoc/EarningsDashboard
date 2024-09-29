@@ -67,7 +67,7 @@ def stock_details_layout(company_name, show_full_layout=True):
     # Charts
     stock_price_chart = create_stock_price_chart(company_name)
     financial_metrics_chart = create_financial_metrics_chart(fetch_stock_data(company_name))
-    print(selected_data)
+    
     # Recommendation
     recommendation = generate_stock_recommendation(selected_data)
 
