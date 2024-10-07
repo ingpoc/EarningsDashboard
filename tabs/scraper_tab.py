@@ -1,9 +1,9 @@
 import subprocess
+import threading
+import logging
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 from dash import html, callback_context
-import threading
-import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -64,14 +64,28 @@ def register_scraper_callbacks(app):
         if not url:
             return "Unknown button clicked.", "warning", True, ""
 
+        # Use a shared variable to store the result
+        result_message = ""
+        result_color = ""
+        result_open = False
+        result_log = ""
+
         def run_scraper():
+            nonlocal result_message, result_color, result_open, result_log  # Use nonlocal to modify outer variables
             try:
                 result = subprocess.run(['python3', './scraper/scrapedata.py', url, scrape_type], check=True, capture_output=True, text=True)
-                logger.info(result.stdout)
-                return (f"Scraping of {scrape_type} data completed successfully!", "success", True, html.Pre(result.stdout))
+                logger.info(result.stdout)  # Log the standard output
+                logger.error(result.stderr)
+                result_message = f"Scraping of {scrape_type} data completed successfully!"
+                result_color = "success"
+                result_open = True
+                result_log = html.Pre(result.stdout)
             except subprocess.CalledProcessError as e:
                 logger.error(e.stderr)
-                return (f"Error during scraping: {e.stderr}", "danger", True, html.Pre(e.stderr))
+                result_message = f"Error during scraping: {e.stderr}"
+                result_color = "danger"
+                result_open = True
+                result_log = html.Pre(e.stderr)
 
         # Run scraper in a separate thread to avoid blocking
         thread = threading.Thread(target=run_scraper)
