@@ -9,9 +9,10 @@ from util.layout import sidebar, content, details_modal, overview_modal
 from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
 from tabs.overview_tab import register_overview_callbacks, overview_layout
 from tabs.portfolio_tab import register_portfolio_callback, portfolio_layout
-from tabs.stock_details_tab import stock_details_layout
+from tabs.stock_details_tab import stock_details_layout, register_stock_details_callbacks
 from tabs.settings_tab import settings_layout, register_settings_callbacks
 from tabs.notifications_tab import notifications_layout, register_notifications_callbacks
+
 
 import threading
 import schedule
@@ -37,6 +38,7 @@ register_scraper_callbacks(app)
 register_ipo_callbacks(app)
 register_settings_callbacks(app)
 register_notifications_callbacks(app)
+register_stock_details_callbacks(app)
 
 app.layout = dbc.Container([
     dcc.Location(id='url', refresh=False),
