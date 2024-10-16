@@ -9,6 +9,7 @@ import os
 from pymongo import MongoClient
 import datetime
 from scraper_login import login_to_moneycontrol, setup_webdriver
+import time
 logger = logging.getLogger(__name__)
 
 
