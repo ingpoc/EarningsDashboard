@@ -306,14 +306,15 @@ def register_portfolio_callback(app):
         # Prepare data for display (including 'TTM P/E')
         filtered_df = df[['Instrument', 'LTP', 'P&L', 'TTM P/E', 'Net Profit Growth %', 
                          'strengths', 'weaknesses', 'technicals_trend', 
-                         'fundamental_insights', 'piotroski_score', 'Estimates (%)']]
+                         'fundamental_insights', 'piotroski_score', 'Estimates (%)',
+                          'dividend_yield', 'pb_ratio', 'sector_pe', 'revenue_growth',
+                          'face_value', 'book_value', 'ttm_eps']]
 
         # Apply the consolidated recommendation function
         filtered_df = filtered_df.assign(Recommendation=filtered_df.apply(generate_stock_recommendation, axis=1))
 
-        # Drop 'TTM P/E' from the display DataFrame
-        display_df = filtered_df.drop(columns=['TTM P/E'])
-
+        # Drop 'TTM P/E' 'dividend_yield', 'pb_ratio', 'sector_pe', 'revenue_growth','face_value', 'book_value', 'ttm_eps' from the display DataFrame
+        display_df = filtered_df.drop(columns=['TTM P/E', 'dividend_yield', 'pb_ratio', 'sector_pe', 'revenue_growth', 'face_value', 'book_value', 'ttm_eps'])
         
 
         return create_portfolio_table(display_df)
