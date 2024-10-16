@@ -12,23 +12,30 @@ def overview_layout():
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
 
-   
-
-    top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
-    worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
-    latest_results = df.sort_values(by="result_date", ascending=False).head(10)
+    # Extract unique quarters from the data and sort them
+    unique_quarters = sorted(df['quarter'].unique(), reverse=True)
+    
+    # Set the latest quarter as the default value
+    latest_quarter = unique_quarters[0] if unique_quarters else None
 
     return dbc.Container([
         html.H2("Market Overview", className="text-center mb-4"),
+        dcc.Dropdown(
+            id='quarter-dropdown',
+            options=[{'label': quarter, 'value': quarter} for quarter in unique_quarters],
+            value=latest_quarter,  # Set the default value to the latest quarter
+            placeholder="Select a quarter",
+            className="mb-4"
+        ),
         dbc.Tabs([
             dbc.Tab(label="Top Performers", children=[
-                create_data_card("Top 10 Performers", 'top-performers-table', top_performers)
+                create_data_card("Top 10 Performers", 'top-performers-table', df)
             ]),
             dbc.Tab(label="Worst Performers", children=[
-                create_data_card("Worst 10 Performers", 'worst-performers-table', worst_performers)
+                create_data_card("Worst 10 Performers", 'worst-performers-table', df)
             ]),
             dbc.Tab(label="Latest Results", children=[
-                create_data_card("Latest 10 Results", 'latest-results-table', latest_results)
+                create_data_card("Latest 10 Results", 'latest-results-table', df)
             ]),
             dbc.Tab(label="All Stocks", children=[
                 create_data_card("Stocks Overview", 'stocks-table', df)
@@ -156,22 +163,23 @@ def register_overview_callbacks(app):
         return True, stock_details, f"Stock Details: {company_name}"
     
     @app.callback(
-        Output('stocks-table', 'data'),
-        Input('stocks-table', 'sort_by')
+        [Output('top-performers-table', 'data'),
+         Output('worst-performers-table', 'data'),
+         Output('latest-results-table', 'data'),
+         Output('stocks-table', 'data')],
+        [Input('quarter-dropdown', 'value')]
     )
-    def update_table(sort_by):
+    def update_tables(selected_quarter):
         df = fetch_latest_quarter_data()
         
-        if sort_by and len(sort_by):
-            col = sort_by[0]['column_id']
-            if col == 'result_date_display':
-                col = 'result_date'
-            elif col == 'company_name_with_indicator':
-                col = 'company_name'
-            df = df.sort_values(
-                col,
-                ascending=sort_by[0]['direction'] == 'asc',
-                inplace=False
-            )
+        if selected_quarter:
+            df = df[df['quarter'] == selected_quarter]
         
-        return df.to_dict('records')
+        top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
+        worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
+        latest_results = df.sort_values(by="result_date", ascending=False).head(10)
+        
+        return (top_performers.to_dict('records'),
+                worst_performers.to_dict('records'),
+                latest_results.to_dict('records'),
+                df.to_dict('records'))
