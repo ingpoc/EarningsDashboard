@@ -23,11 +23,30 @@ def fetch_stock_names(collection):
 
 # Utility function for converting strings to numeric values
 def parse_numeric_value(value, remove_chars='%'):
-    if isinstance(value, str):
-        for char in remove_chars:
-            value = value.replace(char, '')
-        return pd.to_numeric(value.replace(',', ''), errors='coerce')
-    return value
+    """
+    Parses a numeric value from a string, handling specified characters.
+
+    Parameters:
+    - value: The value to parse (could be a string or a number).
+    - remove_chars (str): Characters to remove from the string.
+
+    Returns:
+    - float: The numeric value parsed from the input, or np.nan if parsing fails.
+    """
+    if value is None or pd.isnull(value) or value in ['--', 'NA', 'nan', 'N/A', '', 'NaN']:
+        return np.nan
+    try:
+        if isinstance(value, str):
+            for char in remove_chars:
+                value = value.replace(char, '')
+            value = value.replace(',', '').strip()
+            if value == '':
+                return np.nan
+            return float(value)
+        else:
+            return float(value)
+    except (ValueError, TypeError):
+        return np.nan
 
 # Function to parse all numeric values in a dictionary
 def parse_all_numeric_values(data, keys, remove_chars='%'):
@@ -36,42 +55,6 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
     return data
 
 # Function to generate stock recommendation
-def generate_stock_recommendation(data):
-    """
-    Generates a stock recommendation based on TTM P/E Ratio and Net Profit Growth.
-
-    Parameters:
-    - data (dict or pd.Series): A dictionary or DataFrame row containing 'ttm_pe' and 'net_profit_growth'.
-
-    Returns:
-    - str: Recommendation ("Strong Buy", "Buy", "Sell", "Hold", or "Insufficient data for recommendation")
-    """
-    if isinstance(data, pd.Series):
-        # DataFrame row input
-        ttm_pe = parse_numeric_value(data.get('TTM P/E') or data.get('ttm_pe'))
-        net_profit_growth = parse_numeric_value(data.get('Net Profit Growth %') or data.get('net_profit_growth'), '%')
-    elif isinstance(data, dict):
-        # Selected data dictionary input
-        ttm_pe = parse_numeric_value(data.get('ttm_pe'))
-        net_profit_growth = parse_numeric_value(data.get('net_profit_growth'), '%')
-    else:
-        return "Invalid data format"
-
-    
-
-    if ttm_pe is not None and net_profit_growth is not None:
-        if ttm_pe < 15 and net_profit_growth > 10:
-            return "Strong Buy"
-        elif ttm_pe < 20 and net_profit_growth > 5:
-            return "Buy"
-        elif ttm_pe > 25 and net_profit_growth < 0:
-            return "Sell"
-        else:
-            return "Hold"
-    else:
-        return "NA"
-
-
 
 
 @lru_cache(maxsize=32)

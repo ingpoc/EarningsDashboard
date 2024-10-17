@@ -6,7 +6,8 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 from dash.dependencies import Input, Output, State
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_metrics, extract_numeric, generate_stock_recommendation
+from util.utils import fetch_latest_metrics, extract_numeric
+from util.recommendation import generate_stock_recommendation
 from util.stock_utils import create_info_card
 
 # MongoDB connection

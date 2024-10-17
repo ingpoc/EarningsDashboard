@@ -2,7 +2,8 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 import pandas as pd
 from util.charting import create_financial_metrics_chart, create_stock_price_chart
-from util.utils import parse_numeric_value, generate_stock_recommendation
+from util.utils import parse_numeric_value
+from util.recommendation import generate_stock_recommendation
 from pymongo import MongoClient
 from util.stock_utils import create_info_card
 import plotly.graph_objs as go
