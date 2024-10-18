@@ -43,7 +43,7 @@ def generate_stock_recommendation(data):
     missing_metrics = 0  # Counter for missing metrics
 
     if isinstance(data, pd.Series) or isinstance(data, dict):
-        ttm_pe = parse_numeric_value(data.get('TTM P/E', default_values['ttm_pe']))
+        ttm_pe = parse_numeric_value(data.get('ttm_pe', data.get('TTM P/E', default_values['ttm_pe'])))
         if np.isnan(ttm_pe):
             ttm_pe = default_values['ttm_pe']
             missing_metrics += 1
@@ -53,8 +53,7 @@ def generate_stock_recommendation(data):
             pb_ratio = default_values['pb_ratio']
             missing_metrics += 1
 
-        net_profit_growth = parse_numeric_value(
-            data.get('Net Profit Growth %', default_values['net_profit_growth']), '%')
+        net_profit_growth =  parse_numeric_value(data.get('Net Profit Growth %', data.get('net_profit_growth', default_values['net_profit_growth'])))
         if np.isnan(net_profit_growth):
             net_profit_growth = default_values['net_profit_growth']
             missing_metrics += 1
@@ -123,6 +122,8 @@ def generate_stock_recommendation(data):
             missing_metrics += 1
     else:
         return "Invalid data format"
+
+   
 
     # Set a threshold for missing metrics
     total_metrics = len(metrics_keys)
@@ -213,7 +214,7 @@ def generate_stock_recommendation(data):
         total_score -= weights['face_value']
 
     # Book Value vs Current Price
-    current_price = parse_numeric_value(data.get('LTP', default_values.get('current_price', 0.0)))
+    current_price = parse_numeric_value(data.get('LTP', data.get('cmp', default_values.get('current_price', 0.0))))
     if np.isnan(current_price) or current_price == 0:
         current_price = default_values.get('current_price', 0.0)
         missing_metrics += 1  # Increment missing metrics if current price is missing
@@ -233,6 +234,25 @@ def generate_stock_recommendation(data):
             total_score += 0  # Neutral
         else:
             total_score -= weights['fundamental_insights']
+
+    if data.get('company_name', '') == 'IOB':
+        print("Metrics for IOB:")
+        print(f"TTM P/E Ratio: {ttm_pe}")
+        print(f"P/B Ratio: {pb_ratio}")
+        print(f"Net Profit Growth (%): {net_profit_growth}%")
+        print(f"Revenue Growth (%): {revenue_growth}%")
+        print(f"Piotroski Score: {piotroski_score}")
+        print(f"Technicals Trend: {technicals_trend}")
+        print(f"Strengths vs Weaknesses: {strengths} vs {weaknesses}")
+        print(f"Dividend Yield (%): {dividend_yield}%")
+        print(f"TTM EPS: {ttm_eps}")
+        print(f"Face Value: {face_value}")
+        print(f"Book Value vs Price: {book_value}")
+        print(f"Fundamental Insights: {fundamental_insights}")
+        print(f"Current Price: {current_price}")
+        print(f"Sector P/E: {sector_pe}")
+        print(f"Missing Metrics: {missing_metrics}")
+        print(f"Total Score: {total_score}")
 
     # Normalize total score to a scale between -1 and 1
     normalized_score = total_score / max_score

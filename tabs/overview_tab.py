@@ -3,6 +3,7 @@ from dash import html, dash_table, dcc
 import pandas as pd
 from dash.dash_table.Format import Format, Scheme
 from util.utils import fetch_latest_quarter_data, process_estimates
+from util.recommendation import generate_stock_recommendation
 from dash.dependencies import Input, Output, State
 import dash
 from tabs.stock_details_tab import stock_details_layout
@@ -11,6 +12,8 @@ def overview_layout():
     df = fetch_latest_quarter_data()
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
+    # Generate recommendations for each row
+    df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
 
     # Extract unique quarters from the data and sort them
     unique_quarters = sorted(df['quarter'].unique(), reverse=True)
@@ -60,14 +63,14 @@ def create_data_table(id, data):
         id=id,
         columns=[
             {"name": "Company Name", "id": "company_name_with_indicator", "presentation": "markdown"},
-            {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-            {"name": "P/E Ratio", "id": "ttm_pe", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
-            {"name": "Net Profit", "id": "net_profit", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
+            {"name": "CMP", "id": "cmp", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},    
             {"name": "Net Profit Growth(%)", "id": "net_profit_growth", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Strengths", "id": "strengths", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
             {"name": "Weaknesses", "id": "weaknesses", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
-            {"name": "Result Date", "id": "result_date_display"},
+            {"name": "Piotroski Score", "id": "piotroski_score", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
+            {"name": "Result Date", "id": "result_date_display"},
+            {"name": "Recommendation", "id": "recommendation"},  # New column
         ],
         data=data.to_dict('records'),
         markdown_options={"html": True},
@@ -96,17 +99,17 @@ def create_data_table(id, data):
         style_data={
             'border': '1px solid #dee2e6',
         },
-         style_cell_conditional=[
-                {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '200px', 'maxWidth': '300px'},
-                {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
-                {'if': {'column_id': 'ttm_pe'}, 'minWidth': '80px', 'maxWidth': '100px'},
-                {'if': {'column_id': 'net_profit'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
-                {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
-                {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
-                {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            ],
+        style_cell_conditional=[
+            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '200px', 'maxWidth': '300px'},
+            {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '120px'},
+            {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
+            {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
+            {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
+            {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'recommendation'}, 'minWidth': '150px', 'maxWidth': '200px'},  # New column style
+        ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
             {'if': {'filter_query': '{processed_estimates} < 0', 'column_id': 'processed_estimates'}, 'color': '#dc3545'},

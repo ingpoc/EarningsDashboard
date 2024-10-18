@@ -92,8 +92,19 @@ def fetch_latest_quarter_data():
             "net_profit": parse_numeric_value(latest_metric.get("net_profit", "0")),
             "estimates": latest_metric.get("estimates", "N/A"),
             "strengths": extract_numeric(latest_metric.get("strengths", "0")),
-            "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0"))
-        })
+            "weaknesses": extract_numeric(latest_metric.get("weaknesses", "0")),
+            "pb_ratio": parse_numeric_value(latest_metric.get("pb_ratio", "N/A")),
+            "sector_pe": parse_numeric_value(latest_metric.get("sector_pe", "N/A")),
+            "ttm_eps": parse_numeric_value(latest_metric.get("ttm_eps", "N/A")),
+            "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
+            "dividend_yield": parse_numeric_value(latest_metric.get("dividend_yield", "N/A")),
+            "book_value": parse_numeric_value(latest_metric.get("book_value", "N/A")),
+            "face_value": parse_numeric_value(latest_metric.get("face_value", "N/A")),
+            "piotroski_score": parse_numeric_value(latest_metric.get("piotroski_score", "0")),
+            "technicals_trend": latest_metric.get("technicals_trend", "NA"),
+            "revenue_growth": parse_numeric_value(latest_metric.get("revenue_growth", "0%")),
+            "fundamental_insights": latest_metric.get("fundamental_insights", "N/A")
+            })
     
     df = pd.DataFrame(stock_data)
     df = df.sort_values(by="result_date", ascending=False)
