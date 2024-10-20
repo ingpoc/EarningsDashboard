@@ -2,17 +2,12 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 import pandas as pd
 from util.charting import create_financial_metrics_chart, create_stock_price_chart
-from util.utils import parse_numeric_value
+from util.utils import parse_numeric_value, get_collection
 from util.recommendation import generate_stock_recommendation
 from pymongo import MongoClient
 from util.stock_utils import create_info_card
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
-
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
-collection = db['detailed_financials']
 
 def prepare_data_sections(selected_data):
     basic_info = [
@@ -53,7 +48,7 @@ def prepare_data_sections(selected_data):
     return basic_info, valuation_metrics, financial_performance, insights
 
 def stock_details_layout(company_name, show_full_layout=True):
-    stock = collection.find_one({"company_name": company_name})
+    stock = get_collection('detailed_financials').find_one({"company_name": company_name})
 
     if not stock or not stock.get('financial_metrics'):
         return html.Div(["Stock not found or no data available."], className="text-danger")
@@ -124,7 +119,7 @@ def stock_details_layout(company_name, show_full_layout=True):
 
 
 def fetch_stock_data(company_name):
-    stock = collection.find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
+    stock = get_collection('detailed_financials').find_one({"company_name": company_name}, {"financial_metrics": 1, "_id": 0})
     if not stock:
         print(f"Stock not found in MongoDB: {company_name}")
         return pd.DataFrame()
@@ -156,7 +151,7 @@ def register_stock_details_callbacks(app):
         [State('company-name-store', 'children')]
     )
     def update_info_cards(selected_quarter_idx, company_name):
-        stock = collection.find_one({"company_name": company_name})
+        stock = get_collection('detailed_financials').find_one({"company_name": company_name})
         if stock and stock.get('financial_metrics'):
             selected_data = stock['financial_metrics'][int(selected_quarter_idx)]
 

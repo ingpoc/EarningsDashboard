@@ -6,18 +6,14 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 from dash.dependencies import Input, Output, State
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_metrics, extract_numeric
+from util.utils import fetch_latest_metrics, extract_numeric, get_collection
 from util.recommendation import generate_stock_recommendation
 from util.stock_utils import create_info_card
 
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
-collection = db['detailed_financials']
-holdings_collection = db['holdings']
+
 
 def portfolio_layout():
-    holdings_data = list(holdings_collection.find())
+    holdings_data = list(get_collection('holdings').find())
 
     content = html.Div([
         html.H3("Portfolio Management", className="mb-4"),
@@ -148,7 +144,7 @@ def register_portfolio_callback(app):
         row = rows[selected_rows[0]]
         instrument_name = row['Instrument']
         stock_details = fetch_latest_metrics(instrument_name)
-        holding = holdings_collection.find_one({"Instrument": instrument_name})
+        holding = get_collection('holdings').find_one({"Instrument": instrument_name})
 
         modal_content = dbc.Container([
             dbc.Row([
@@ -204,7 +200,7 @@ def register_portfolio_callback(app):
          Input('upload-data', 'filename')]
     )
     def update_portfolio_table(output_upload, contents, filename):
-        holdings_data = list(holdings_collection.find())
+        holdings_data = list(get_collection('holdings').find())
 
         if not holdings_data:
             return html.Div("No portfolio data available.", className="text-danger")
@@ -330,7 +326,7 @@ def register_portfolio_callback(app):
         if contents is None:
             return html.Div()
 
-        holdings_collection.delete_many({})
+        get_collection('holdings').delete_many({})
 
         content_type, content_string = contents.split(',')
         decoded = base64.b64decode(content_string)
@@ -339,7 +335,7 @@ def register_portfolio_callback(app):
                 df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
             else:
                 df = pd.read_excel(io.BytesIO(decoded))
-            holdings_collection.insert_many(df.to_dict("records"))
+            get_collection('holdings').insert_many(df.to_dict("records"))
             return html.Div("Portfolio uploaded successfully!", className="text-success")
         except Exception as e:
             return html.Div([f'There was an error processing this file: {str(e)}'], className="text-danger")

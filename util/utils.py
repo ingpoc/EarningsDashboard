@@ -12,10 +12,29 @@ db = mongo_client['stock_data']
 collection = db['detailed_financials']
 holdings_collection = db['holdings']
 
+# Centralized MongoDB connection
+def get_mongo_client():
+    """Create a singleton MongoDB client."""
+    if not hasattr(get_mongo_client, "_client"):
+        get_mongo_client._client = MongoClient('mongodb://localhost:27017/')
+    return get_mongo_client._client
+
+# Fetch the database only once
+def get_db():
+    client = get_mongo_client()
+    return client['stock_data']
+
+# Reuse the same collections for data access
+def get_collection(collection_name):
+    db = get_db()
+    return db[collection_name]
+
+
 # Utility function for fetching stock names
-def fetch_stock_names(collection):
+def fetch_stock_names():
     try:
-        stocks = collection.find({}, {"company_name": 1})
+        
+        stocks = get_collection('detailed_financials').find({}, {"company_name": 1})
         return [stock['company_name'] for stock in stocks if 'company_name' in stock]
     except Exception as e:
         print(f"Error fetching stock names: {str(e)}")
@@ -59,10 +78,10 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
 
 @lru_cache(maxsize=32)
 def fetch_latest_quarter_data():
-    stocks = list(collection.find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
+    stocks = list(get_collection('detailed_financials').find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
     
     # Fetch portfolio stocks
-    portfolio_stocks = set(holdings_collection.distinct('Instrument'))
+    portfolio_stocks = set(get_collection('holdings').distinct('Instrument'))
     
     # Read the SVG file
     with open('assets/portfolio_indicator.svg', 'r') as f:
@@ -119,7 +138,7 @@ def extract_numeric(value):
         return 0
 
 def get_stock_symbol(company_name):
-    stock = collection.find_one({"company_name": company_name})
+    stock = get_collection('detailed_financials').find_one({"company_name": company_name})
     if stock and 'symbol' in stock:
         return f"{stock['symbol']}.NS"
     return None
@@ -138,7 +157,7 @@ def process_estimates(estimate_str):
         return None
 
 def fetch_latest_metrics(symbol):
-    stock = collection.find_one({"symbol": symbol})
+    stock = get_collection('detailed_financials').find_one({"symbol": symbol})
     
     if not stock or not stock.get('financial_metrics'):
         return {

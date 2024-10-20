@@ -4,11 +4,6 @@ from dash import dcc, html
 from util.utils import fetch_stock_names
 from pymongo import MongoClient
 
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
-collection = db['detailed_financials']
-
 # Sidebar layout
 sidebar = dbc.Col(
     [
@@ -17,7 +12,7 @@ sidebar = dbc.Col(
             html.Hr(),
             dcc.Dropdown(
                 id='stock-search-sidebar',
-                options=[{'label': name, 'value': name} for name in fetch_stock_names(collection)],
+                options=[{'label': name, 'value': name} for name in fetch_stock_names()],
                 placeholder="Search for a stock...",
                 multi=False,
                 style={'width': '100%'},

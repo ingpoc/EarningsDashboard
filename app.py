@@ -12,16 +12,14 @@ from tabs.portfolio_tab import register_portfolio_callback, portfolio_layout
 from tabs.stock_details_tab import stock_details_layout, register_stock_details_callbacks
 from tabs.settings_tab import settings_layout, register_settings_callbacks
 from tabs.notifications_tab import notifications_layout, register_notifications_callbacks
+from util.utils import get_collection
+
 
 
 import threading
 import schedule
 import time
 
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
-collection = db['detailed_financials']
 
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[
@@ -94,7 +92,7 @@ def search_stock(value, current_pathname):
     if value:
         try:
             # Validate that the stock exists in your database
-            stock = collection.find_one({"company_name": {'$regex': f'^{value}$', '$options': 'i'}})
+            stock = get_collection('detailed_financials').find_one({"company_name": {'$regex': f'^{value}$', '$options': 'i'}})
             if stock:
                 return f"/stock/{stock['company_name']}", ""
             else:
