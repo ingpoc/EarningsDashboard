@@ -228,14 +228,11 @@ def load_ai_indicator():
     encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
     return f'data:image/svg+xml;base64,{encoded_svg}'
 
-# Implement get_previous_analysis function
-def get_previous_analysis(company_name, symbol):
-    # Fetch analysis from database
-    analysis = get_collection('ai_analysis').find_one({'symbol': symbol})
-    if analysis:
-        return analysis.get('analysis', 'No analysis available.')
-    else:
-        return f"No previous AI analysis available for {company_name} ({symbol})."
+
+# Implement get_previous_analyses function
+def get_previous_analyses(symbol):
+    analyses = list(get_collection('ai_analysis').find({'symbol': symbol}).sort('timestamp', 1))
+    return analyses
 
 
     

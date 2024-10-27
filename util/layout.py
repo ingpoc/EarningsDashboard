@@ -84,7 +84,20 @@ overview_modal = dbc.Modal(
 ai_recommendation_modal = dbc.Modal(
     [
         dbc.ModalHeader(dbc.ModalTitle("AI Stock Analysis")),
-        dbc.ModalBody(id='ai-recommendation-body'),
+        dbc.ModalBody([
+            dcc.Store(id='selected-stock-symbol'),
+            dcc.Store(id='selected-stock-name'),
+            dbc.Row([
+                dbc.Col([
+                    dcc.Dropdown(
+                        id='analysis-history-dropdown',
+                        placeholder='Select previous analysis',
+                        clearable=False,
+                    ),
+                ], width=12),
+            ], className='mb-3'),
+            html.Div(id='ai-recommendation-content'),
+        ]),
         dbc.ModalFooter([
             dbc.Button("Refresh Analysis", id="refresh-analysis-button", className="me-2"),
             dbc.Button("Close", id="close-ai-modal")

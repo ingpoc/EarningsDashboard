@@ -1,14 +1,24 @@
 # tabs/overview_tab.py
+
 import dash_bootstrap_components as dbc
 from dash import html, dash_table, dcc
 import pandas as pd
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_quarter_data, process_estimates, get_previous_analysis
+from util.utils import (
+    fetch_latest_quarter_data,
+    process_estimates,
+    get_previous_analyses,
+    get_collection
+)
+from util.analysis import fetch_stock_analysis
 from util.recommendation import generate_stock_recommendation
 from dash.dependencies import Input, Output, State
 import dash
 from tabs.stock_details_tab import stock_details_layout
 from util.layout import ai_recommendation_modal
+from bson import ObjectId
+from dash.exceptions import PreventUpdate
+from datetime import datetime
 
 def overview_layout():
     df = fetch_latest_quarter_data()
@@ -108,16 +118,16 @@ def create_data_table(id, data):
             'border': '1px solid #dee2e6',
         },
         style_cell_conditional=[
-            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '80px', 'maxWidth': '130px'},
-            {'if': {'column_id': 'cmp'}, 'minWidth': '50px', 'maxWidth': '70px'},
-            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '50px', 'maxWidth': '120px'},
+            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '150px', 'maxWidth': '200px'},
+            {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '150px'},
             {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
-            {'if': {'column_id': 'processed_estimates'}, 'minWidth': '50px', 'maxWidth': '80px'},
-            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '60px', 'maxWidth': '90px'},
-            {'if': {'column_id': 'recommendation'}, 'minWidth': '50px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '50px', 'maxWidth': '80px'},
+            {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'recommendation'}, 'minWidth': '150px', 'maxWidth': '200px'},
+            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '50px', 'maxWidth': '60px'},
         ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
@@ -197,51 +207,102 @@ def register_overview_callbacks(app):
                 latest_results.to_dict('records'),
                 df.to_dict('records'))
 
+    # Combined callback for opening and closing the AI Recommendation Modal
     @app.callback(
         [Output('ai-recommendation-modal', 'is_open'),
-         Output('ai-recommendation-body', 'children')],
+         Output('selected-stock-symbol', 'data'),
+         Output('selected-stock-name', 'data'),
+         Output('analysis-history-dropdown', 'options'),
+         Output('analysis-history-dropdown', 'value'),
+         Output('ai-recommendation-content', 'children')],
         [Input('stocks-table', 'active_cell'),
          Input('top-performers-table', 'active_cell'),
          Input('worst-performers-table', 'active_cell'),
-         Input('latest-results-table', 'active_cell')],
-        [State('stocks-table', 'data'),
+         Input('latest-results-table', 'active_cell'),
+         Input('close-ai-modal', 'n_clicks'),
+         Input('analysis-history-dropdown', 'value'),
+         Input('refresh-analysis-button', 'n_clicks')],
+        [State('ai-recommendation-modal', 'is_open'),
+         State('stocks-table', 'data'),
          State('top-performers-table', 'data'),
          State('worst-performers-table', 'data'),
-         State('latest-results-table', 'data')],
+         State('latest-results-table', 'data'),
+         State('selected-stock-name', 'data'),
+         State('selected-stock-symbol', 'data'),
+         State('analysis-history-dropdown', 'options')],
         prevent_initial_call=True
     )
-    def open_ai_modal(stocks_active_cell, top_active_cell, worst_active_cell, latest_active_cell,
-                      stocks_data, top_data, worst_data, latest_data):
+    def handle_ai_recommendation(stocks_active_cell, top_active_cell, worst_active_cell, 
+                               latest_active_cell, close_n_clicks, selected_analysis_id,
+                               refresh_n_clicks, is_open, stocks_data, top_data, worst_data, 
+                               latest_data, stock_name, stock_symbol, existing_options):
         ctx = dash.callback_context
         if not ctx.triggered:
-            return False, dash.no_update
+            raise PreventUpdate
 
-        # Determine which table triggered the callback
         triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+        # Handle close button
+        if triggered_id == 'close-ai-modal':
+            return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        # Handle analysis history selection
+        if triggered_id == 'analysis-history-dropdown' and selected_analysis_id:
+            analysis_doc = get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
+            content = analysis_doc['analysis'] if analysis_doc else 'Analysis not found.'
+            return is_open, stock_symbol, stock_name, existing_options, selected_analysis_id, content
+
+        # Handle refresh analysis
+        if triggered_id == 'refresh-analysis-button' and refresh_n_clicks:
+            new_analysis_text = fetch_stock_analysis(stock_name)
+            if new_analysis_text is None:
+                return is_open, stock_symbol, stock_name, existing_options, dash.no_update, 'Error fetching new analysis.'
+
+            # Store new analysis
+            analysis_doc = {
+                'company_name': stock_name,
+                'symbol': stock_symbol,
+                'analysis': new_analysis_text,
+                'timestamp': datetime.now(),
+            }
+            get_collection('ai_analysis').insert_one(analysis_doc)
+
+            # Update options and return
+            analyses = get_previous_analyses(stock_symbol)
+            options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
+                       'value': str(a['_id'])} for a in analyses]
+            return is_open, stock_symbol, stock_name, options, str(analysis_doc['_id']), new_analysis_text
+
+        # Handle cell selection
         active_cell = None
         data = None
 
         if triggered_id == 'stocks-table':
-            active_cell = stocks_active_cell
-            data = stocks_data
+            active_cell, data = stocks_active_cell, stocks_data
         elif triggered_id == 'top-performers-table':
-            active_cell = top_active_cell
-            data = top_data
+            active_cell, data = top_active_cell, top_data
         elif triggered_id == 'worst-performers-table':
-            active_cell = worst_active_cell
-            data = worst_data
+            active_cell, data = worst_active_cell, worst_data
         elif triggered_id == 'latest-results-table':
-            active_cell = latest_active_cell
-            data = latest_data
-        else:
-            return False, dash.no_update
+            active_cell, data = latest_active_cell, latest_data
 
         if active_cell and active_cell['column_id'] == 'ai_indicator':
             row = data[active_cell['row']]
             stock_name = row['company_name']
             stock_symbol = row['symbol']
-            previous_analysis = get_previous_analysis(stock_name, stock_symbol)
-            return True, previous_analysis
-        else:
-            return False, dash.no_update
+            analyses = get_previous_analyses(stock_symbol)
 
+            if analyses:
+                options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
+                           'value': str(a['_id'])} for a in analyses]
+                latest_analysis = analyses[-1]
+                default_value = str(latest_analysis['_id'])
+                content = latest_analysis['analysis']
+            else:
+                options = []
+                default_value = None
+                content = 'No previous analysis available.'
+
+            return True, stock_symbol, stock_name, options, default_value, content
+
+        return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
