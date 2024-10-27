@@ -10,10 +10,12 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
 
 def prepare_data_sections(selected_data):
+    
     basic_info = [
         ("CMP", selected_data.get('cmp', 'N/A')),
         ("Report Type", selected_data.get('report_type', 'N/A')),
-        ("Result Date", selected_data.get('result_date', 'N/A'))
+        ("Result Date", selected_data.get('result_date', 'N/A')),
+        ("Symbol", selected_data.get('symbol', 'N/A'))
     ]
 
     valuation_metrics = [
@@ -64,7 +66,9 @@ def stock_details_layout(company_name, show_full_layout=True):
 
     # Fetch data for the default quarter
     selected_data = stock['financial_metrics'][default_value]
-
+    # Fetch symbol from stock and set in selected_data
+    selected_data['symbol'] = stock.get('symbol', 'N/A')
+    print(stock.get('symbol', 'N/A'))
     # Prepare data for display using the helper function
     basic_info, valuation_metrics, financial_performance, insights = prepare_data_sections(selected_data)
 
@@ -154,7 +158,7 @@ def register_stock_details_callbacks(app):
         stock = get_collection('detailed_financials').find_one({"company_name": company_name})
         if stock and stock.get('financial_metrics'):
             selected_data = stock['financial_metrics'][int(selected_quarter_idx)]
-
+            selected_data['symbol'] = stock.get('symbol', 'N/A')
             # Prepare data for display using the helper function
             basic_info, valuation_metrics, financial_performance, insights = prepare_data_sections(selected_data)
 

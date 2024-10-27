@@ -10,9 +10,11 @@ from tabs.stock_details_tab import stock_details_layout
 
 def overview_layout():
     df = fetch_latest_quarter_data()
+   
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
     # Generate recommendations for each row
+    
     df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
 
     # Extract unique quarters from the data and sort them
@@ -100,9 +102,9 @@ def create_data_table(id, data):
             'border': '1px solid #dee2e6',
         },
         style_cell_conditional=[
-            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '200px', 'maxWidth': '300px'},
+            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '150px', 'maxWidth': '200px'},
             {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '120px'},
+            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '150px'},
             {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},

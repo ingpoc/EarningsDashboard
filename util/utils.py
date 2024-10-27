@@ -5,12 +5,13 @@ from pymongo import MongoClient
 import dash_bootstrap_components as dbc
 from dash import html
 import numpy as np
+from functools import lru_cache
+import redis
 
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
-collection = db['detailed_financials']
-holdings_collection = db['holdings']
+
+
+# Initialize Redis client
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
 
 # Centralized MongoDB connection
 def get_mongo_client():
@@ -30,7 +31,7 @@ def get_collection(collection_name):
     return db[collection_name]
 
 
-# Utility function for fetching stock names
+@lru_cache(maxsize=500)
 def fetch_stock_names():
     try:
         
@@ -76,7 +77,7 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
 # Function to generate stock recommendation
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=200)
 def fetch_latest_quarter_data():
     stocks = list(get_collection('detailed_financials').find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
     
