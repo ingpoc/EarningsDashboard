@@ -125,9 +125,9 @@ def create_data_table(id, data):
             {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
             {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'recommendation'}, 'minWidth': '150px', 'maxWidth': '200px'},
-            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '50px', 'maxWidth': '60px'},
+            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '120px'},
+            {'if': {'column_id': 'recommendation'}, 'minWidth': '130px', 'maxWidth': '150px'},
+            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '70px', 'maxWidth': '100px'},
         ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},

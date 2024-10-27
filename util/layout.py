@@ -96,7 +96,11 @@ ai_recommendation_modal = dbc.Modal(
                     ),
                 ], width=12),
             ], className='mb-3'),
-            html.Div(id='ai-recommendation-content'),
+            dcc.Markdown(
+                id='ai-recommendation-content',
+                style={'whiteSpace': 'pre-wrap'},
+                dangerously_allow_html=True,  # Optional
+            ),
         ]),
         dbc.ModalFooter([
             dbc.Button("Refresh Analysis", id="refresh-analysis-button", className="me-2"),
