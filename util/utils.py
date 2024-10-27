@@ -84,16 +84,16 @@ def fetch_latest_quarter_data():
     # Fetch portfolio stocks
     portfolio_stocks = set(get_collection('holdings').distinct('Instrument'))
     
-    # Read the SVG file
+    # Read the SVG file for portfolio indicator
     with open('assets/portfolio_indicator.svg', 'r') as f:
         svg_content = f.read()
 
-     # Load the AI indicator
-    ai_indicator = load_ai_indicator() 
-    
     # Encode the SVG content
     encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
-    
+
+    # Load the AI indicator
+    ai_indicator = load_ai_indicator()
+
     stock_data = []
     for stock in stocks:
         latest_metric = stock['financial_metrics'][0]
@@ -102,8 +102,9 @@ def fetch_latest_quarter_data():
         in_portfolio = symbol in portfolio_stocks
         indicator = f'<img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24">' if in_portfolio else ''
         company_name_with_indicator = f'{indicator} {company_name}'
-          # Create the AI indicator HTML
-        ai_indicator_html = f'<img src="{ai_indicator}" width="24" height="24" style="cursor: pointer;" id="ai-indicator-{symbol}" />'
+
+        # Create the AI indicator HTML (without id)
+        ai_indicator_html = f'<img src="{ai_indicator}" width="24" height="24" style="cursor: pointer;" />'
         
         stock_data.append({
             "company_name": company_name,
@@ -226,6 +227,15 @@ def load_ai_indicator():
     # Encode the SVG content
     encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
     return f'data:image/svg+xml;base64,{encoded_svg}'
+
+# Implement get_previous_analysis function
+def get_previous_analysis(company_name, symbol):
+    # Fetch analysis from database
+    analysis = get_collection('ai_analysis').find_one({'symbol': symbol})
+    if analysis:
+        return analysis.get('analysis', 'No analysis available.')
+    else:
+        return f"No previous AI analysis available for {company_name} ({symbol})."
 
 
     

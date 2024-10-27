@@ -1,13 +1,14 @@
+# tabs/overview_tab.py
 import dash_bootstrap_components as dbc
 from dash import html, dash_table, dcc
 import pandas as pd
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_quarter_data, process_estimates
+from util.utils import fetch_latest_quarter_data, process_estimates, get_previous_analysis
 from util.recommendation import generate_stock_recommendation
 from dash.dependencies import Input, Output, State
 import dash
 from tabs.stock_details_tab import stock_details_layout
-from util.layout import ai_recommendation_modal  # Add this import
+from util.layout import ai_recommendation_modal
 
 def overview_layout():
     df = fetch_latest_quarter_data()
@@ -15,7 +16,6 @@ def overview_layout():
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
     # Generate recommendations for each row
-    
     df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
 
     # Extract unique quarters from the data and sort them
@@ -48,13 +48,12 @@ def overview_layout():
             ]),
         ], className="mb-4"),
         
-        
         # Include the AI Recommendation Modal
         ai_recommendation_modal,
         
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle(id="overview-modal-title", className="text-primary")),
-            dbc.ModalBody(id="overview-details-body", className="p-0"),
+            dbc.ModalBody(id="overview-details-body"),
         ], id="overview-details-modal", size="lg", scrollable=True),
     ], fluid=True)
 
@@ -79,7 +78,7 @@ def create_data_table(id, data):
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Result Date", "id": "result_date_display"},
             {"name": "Recommendation", "id": "recommendation"},
-            {"name": "AI Indicator", "id": "ai_indicator", "presentation": "markdown"},  # New column  # New column
+            {"name": "AI Indicator", "id": "ai_indicator", "presentation": "markdown"},
         ],
         data=data.to_dict('records'),
         markdown_options={"html": True},
@@ -109,15 +108,16 @@ def create_data_table(id, data):
             'border': '1px solid #dee2e6',
         },
         style_cell_conditional=[
-            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '150px', 'maxWidth': '200px'},
-            {'if': {'column_id': 'cmp'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '100px', 'maxWidth': '150px'},
+            {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '80px', 'maxWidth': '130px'},
+            {'if': {'column_id': 'cmp'}, 'minWidth': '50px', 'maxWidth': '70px'},
+            {'if': {'column_id': 'net_profit_growth'}, 'minWidth': '50px', 'maxWidth': '120px'},
             {'if': {'column_id': 'strengths'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'weaknesses'}, 'minWidth': '70px', 'maxWidth': '90px'},
             {'if': {'column_id': 'result_date_display'}, 'minWidth': '100px', 'maxWidth': '120px'},
-            {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '100px'},
-            {'if': {'column_id': 'recommendation'}, 'minWidth': '150px', 'maxWidth': '200px'},  # New column style
+            {'if': {'column_id': 'processed_estimates'}, 'minWidth': '50px', 'maxWidth': '80px'},
+            {'if': {'column_id': 'piotroski_score'}, 'minWidth': '60px', 'maxWidth': '90px'},
+            {'if': {'column_id': 'recommendation'}, 'minWidth': '50px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '50px', 'maxWidth': '80px'},
         ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
@@ -135,6 +135,7 @@ def create_data_table(id, data):
         page_action='native',
         page_size=25,
         page_current=0,
+        cell_selectable=True,  # Enable cell selection
     )
 
 def register_overview_callbacks(app):
@@ -197,26 +198,50 @@ def register_overview_callbacks(app):
                 df.to_dict('records'))
 
     @app.callback(
-    [Output('ai-recommendation-modal', 'is_open'),
-     Output('ai-recommendation-body', 'children')],
-    Input({'type': 'ai-indicator', 'index': dash.dependencies.ALL}, 'n_clicks'),
-    State('stocks-table', 'data'),
-    prevent_initial_call=True
-)
-    def open_ai_modal(n_clicks, stocks_data):
+        [Output('ai-recommendation-modal', 'is_open'),
+         Output('ai-recommendation-body', 'children')],
+        [Input('stocks-table', 'active_cell'),
+         Input('top-performers-table', 'active_cell'),
+         Input('worst-performers-table', 'active_cell'),
+         Input('latest-results-table', 'active_cell')],
+        [State('stocks-table', 'data'),
+         State('top-performers-table', 'data'),
+         State('worst-performers-table', 'data'),
+         State('latest-results-table', 'data')],
+        prevent_initial_call=True
+    )
+    def open_ai_modal(stocks_active_cell, top_active_cell, worst_active_cell, latest_active_cell,
+                      stocks_data, top_data, worst_data, latest_data):
         ctx = dash.callback_context
         if not ctx.triggered:
-            return False, ""
+            return False, dash.no_update
 
+        # Determine which table triggered the callback
         triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        stock_index = int(triggered_id.split('-')[-1])  # Extract the stock index from the ID
+        active_cell = None
+        data = None
 
-        stock_name = stocks_data[stock_index]['company_name']
-        stock_symbol = stocks_data[stock_index]['symbol']
-        
-        previous_analysis = get_previous_analysis(stock_name, stock_symbol)  # Fetch previous analysis
-        return True, previous_analysis  # Open modal and show analysis
+        if triggered_id == 'stocks-table':
+            active_cell = stocks_active_cell
+            data = stocks_data
+        elif triggered_id == 'top-performers-table':
+            active_cell = top_active_cell
+            data = top_data
+        elif triggered_id == 'worst-performers-table':
+            active_cell = worst_active_cell
+            data = worst_data
+        elif triggered_id == 'latest-results-table':
+            active_cell = latest_active_cell
+            data = latest_data
+        else:
+            return False, dash.no_update
 
-
-
+        if active_cell and active_cell['column_id'] == 'ai_indicator':
+            row = data[active_cell['row']]
+            stock_name = row['company_name']
+            stock_symbol = row['symbol']
+            previous_analysis = get_previous_analysis(stock_name, stock_symbol)
+            return True, previous_analysis
+        else:
+            return False, dash.no_update
 
