@@ -1,3 +1,4 @@
+# app.py
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc
@@ -5,7 +6,7 @@ from dash.dependencies import Input, Output, State
 from pymongo import MongoClient
 from tabs.scraper_tab import scraper_layout, register_scraper_callbacks
 from tabs.community_tab import community_layout, settings_layout, register_twitter_callbacks
-from util.layout import sidebar, content, details_modal, overview_modal
+from util.layout import sidebar, content, details_modal, overview_modal, ai_recommendation_modal
 from tabs.ipo_tab import ipo_layout, register_ipo_callbacks
 from tabs.overview_tab import register_overview_callbacks, overview_layout
 from tabs.portfolio_tab import register_portfolio_callback, portfolio_layout
@@ -44,7 +45,8 @@ app.layout = dbc.Container([
         sidebar,
         content,
         details_modal,
-        overview_modal
+        overview_modal,
+        ai_recommendation_modal  # Ensure this is included
     ], className="h-100"),
     dcc.Store(id="combined-ipo-store"),
     dcc.Store(id="dark-mode-store", data={'dark_mode': False}),

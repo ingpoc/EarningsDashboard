@@ -87,6 +87,9 @@ def fetch_latest_quarter_data():
     # Read the SVG file
     with open('assets/portfolio_indicator.svg', 'r') as f:
         svg_content = f.read()
+
+     # Load the AI indicator
+    ai_indicator = load_ai_indicator() 
     
     # Encode the SVG content
     encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
@@ -99,11 +102,14 @@ def fetch_latest_quarter_data():
         in_portfolio = symbol in portfolio_stocks
         indicator = f'<img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24">' if in_portfolio else ''
         company_name_with_indicator = f'{indicator} {company_name}'
+          # Create the AI indicator HTML
+        ai_indicator_html = f'<img src="{ai_indicator}" width="24" height="24" style="cursor: pointer;" id="ai-indicator-{symbol}" />'
         
         stock_data.append({
             "company_name": company_name,
             "symbol": symbol,
             "company_name_with_indicator": company_name_with_indicator,
+            "ai_indicator": ai_indicator_html,
             "result_date": pd.to_datetime(latest_metric.get("result_date", "N/A")),
             "net_profit_growth": parse_numeric_value(latest_metric.get("net_profit_growth", "0%")),
             "cmp": parse_numeric_value(latest_metric.get("cmp", "0").split()[0]),
@@ -116,7 +122,6 @@ def fetch_latest_quarter_data():
             "pb_ratio": parse_numeric_value(latest_metric.get("pb_ratio", "N/A")),
             "sector_pe": parse_numeric_value(latest_metric.get("sector_pe", "N/A")),
             "ttm_eps": parse_numeric_value(latest_metric.get("ttm_eps", "N/A")),
-            "ttm_pe": parse_numeric_value(latest_metric.get("ttm_pe", "N/A")),
             "dividend_yield": parse_numeric_value(latest_metric.get("dividend_yield", "N/A")),
             "book_value": parse_numeric_value(latest_metric.get("book_value", "N/A")),
             "face_value": parse_numeric_value(latest_metric.get("face_value", "N/A")),
@@ -214,3 +219,13 @@ def fetch_latest_metrics(symbol):
         "sector_pe": latest_metric.get("sector_pe", "NA"),
         "estimates": latest_metric.get("estimates", "NA")
     }
+
+def load_ai_indicator():
+    with open('assets/ai_indicator.svg', 'r') as f:
+        svg_content = f.read()
+    # Encode the SVG content
+    encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+    return f'data:image/svg+xml;base64,{encoded_svg}'
+
+
+    

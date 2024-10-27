@@ -7,6 +7,7 @@ from util.recommendation import generate_stock_recommendation
 from dash.dependencies import Input, Output, State
 import dash
 from tabs.stock_details_tab import stock_details_layout
+from util.layout import ai_recommendation_modal  # Add this import
 
 def overview_layout():
     df = fetch_latest_quarter_data()
@@ -46,6 +47,11 @@ def overview_layout():
                 create_data_card("Stocks Overview", 'stocks-table', df)
             ]),
         ], className="mb-4"),
+        
+        
+        # Include the AI Recommendation Modal
+        ai_recommendation_modal,
+        
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle(id="overview-modal-title", className="text-primary")),
             dbc.ModalBody(id="overview-details-body", className="p-0"),
@@ -72,7 +78,8 @@ def create_data_table(id, data):
             {"name": "Piotroski Score", "id": "piotroski_score", "type": "numeric", "format": Format(precision=0, scheme=Scheme.fixed)},
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Result Date", "id": "result_date_display"},
-            {"name": "Recommendation", "id": "recommendation"},  # New column
+            {"name": "Recommendation", "id": "recommendation"},
+            {"name": "AI Indicator", "id": "ai_indicator", "presentation": "markdown"},  # New column  # New column
         ],
         data=data.to_dict('records'),
         markdown_options={"html": True},
@@ -188,3 +195,28 @@ def register_overview_callbacks(app):
                 worst_performers.to_dict('records'),
                 latest_results.to_dict('records'),
                 df.to_dict('records'))
+
+    @app.callback(
+    [Output('ai-recommendation-modal', 'is_open'),
+     Output('ai-recommendation-body', 'children')],
+    Input({'type': 'ai-indicator', 'index': dash.dependencies.ALL}, 'n_clicks'),
+    State('stocks-table', 'data'),
+    prevent_initial_call=True
+)
+    def open_ai_modal(n_clicks, stocks_data):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return False, ""
+
+        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        stock_index = int(triggered_id.split('-')[-1])  # Extract the stock index from the ID
+
+        stock_name = stocks_data[stock_index]['company_name']
+        stock_symbol = stocks_data[stock_index]['symbol']
+        
+        previous_analysis = get_previous_analysis(stock_name, stock_symbol)  # Fetch previous analysis
+        return True, previous_analysis  # Open modal and show analysis
+
+
+
+
