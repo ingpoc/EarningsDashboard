@@ -88,7 +88,7 @@ def create_data_table(id, data):
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Result Date", "id": "result_date_display"},
             {"name": "Recommendation", "id": "recommendation"},
-            {"name": "AI Indicator", "id": "ai_indicator", "presentation": "markdown"},
+            {"name": "AI", "id": "ai_indicator", "presentation": "markdown"},
         ],
         data=data.to_dict('records'),
         markdown_options={"html": True},
@@ -127,7 +127,7 @@ def create_data_table(id, data):
             {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
             {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '120px'},
             {'if': {'column_id': 'recommendation'}, 'minWidth': '130px', 'maxWidth': '150px'},
-            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '70px', 'maxWidth': '100px'},
+            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '30px', 'maxWidth': '40px'},
         ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
