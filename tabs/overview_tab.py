@@ -18,7 +18,7 @@ from tabs.stock_details_tab import stock_details_layout
 from util.layout import ai_recommendation_modal
 from bson import ObjectId
 from dash.exceptions import PreventUpdate
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def overview_layout():
     df = fetch_latest_quarter_data()
@@ -269,8 +269,7 @@ def register_overview_callbacks(app):
 
             # Update options and return
             analyses = get_previous_analyses(stock_symbol)
-            options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
-                        'value': str(a['_id'])} for a in analyses]
+            options = [{'label': format_label(a['timestamp']), 'value': str(a['_id'])} for a in analyses]
             return is_open, stock_symbol, stock_name, options, str(analysis_doc['_id']), new_analysis_text
 
         # Handle cell selection
@@ -293,8 +292,7 @@ def register_overview_callbacks(app):
             analyses = get_previous_analyses(stock_symbol)
 
             if analyses:
-                options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
-                            'value': str(a['_id'])} for a in analyses]
+                options = [{'label': format_label(a['timestamp']), 'value': str(a['_id'])} for a in analyses]
                 latest_analysis = analyses[-1]
                 default_value = str(latest_analysis['_id'])
                 content = latest_analysis['analysis']
@@ -306,3 +304,13 @@ def register_overview_callbacks(app):
             return True, stock_symbol, stock_name, options, default_value, content
 
         return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+
+def format_label(timestamp):
+    now = datetime.now()
+    if timestamp.date() == now.date():
+        return 'Today ' + timestamp.strftime('%H:%M')
+    elif timestamp.date() == (now - timedelta(days=1)).date():
+        return 'Yesterday ' + timestamp.strftime('%H:%M')
+    else:
+        return timestamp.strftime('%d %B %Y')
