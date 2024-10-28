@@ -209,33 +209,33 @@ def register_overview_callbacks(app):
 
     # Combined callback for opening and closing the AI Recommendation Modal
     @app.callback(
-        [Output('ai-recommendation-modal', 'is_open'),
-         Output('selected-stock-symbol', 'data'),
-         Output('selected-stock-name', 'data'),
-         Output('analysis-history-dropdown', 'options'),
-         Output('analysis-history-dropdown', 'value'),
-         Output('ai-recommendation-content', 'children')],
-        [Input('stocks-table', 'active_cell'),
-         Input('top-performers-table', 'active_cell'),
-         Input('worst-performers-table', 'active_cell'),
-         Input('latest-results-table', 'active_cell'),
-         Input('close-ai-modal', 'n_clicks'),
-         Input('analysis-history-dropdown', 'value'),
-         Input('refresh-analysis-button', 'n_clicks')],
-        [State('ai-recommendation-modal', 'is_open'),
-         State('stocks-table', 'data'),
-         State('top-performers-table', 'data'),
-         State('worst-performers-table', 'data'),
-         State('latest-results-table', 'data'),
-         State('selected-stock-name', 'data'),
-         State('selected-stock-symbol', 'data'),
-         State('analysis-history-dropdown', 'options')],
-        prevent_initial_call=True
-    )
+    [Output('ai-recommendation-modal', 'is_open'),
+     Output('selected-stock-symbol', 'data'),
+     Output('selected-stock-name', 'data'),
+     Output('analysis-history-dropdown', 'options'),
+     Output('analysis-history-dropdown', 'value'),
+     Output('ai-recommendation-content', 'children')],
+    [Input('stocks-table', 'active_cell'),
+     Input('top-performers-table', 'active_cell'),
+     Input('worst-performers-table', 'active_cell'),
+     Input('latest-results-table', 'active_cell'),
+     Input('close-ai-modal', 'n_clicks'),
+     Input('analysis-history-dropdown', 'value'),
+     Input('refresh-analysis-button', 'n_clicks')],
+    [State('ai-recommendation-modal', 'is_open'),
+     State('stocks-table', 'derived_virtual_data'),
+     State('top-performers-table', 'derived_virtual_data'),
+     State('worst-performers-table', 'derived_virtual_data'),
+     State('latest-results-table', 'derived_virtual_data'),
+     State('selected-stock-name', 'data'),
+     State('selected-stock-symbol', 'data'),
+     State('analysis-history-dropdown', 'options')],
+    prevent_initial_call=True
+)
     def handle_ai_recommendation(stocks_active_cell, top_active_cell, worst_active_cell, 
-                               latest_active_cell, close_n_clicks, selected_analysis_id,
-                               refresh_n_clicks, is_open, stocks_data, top_data, worst_data, 
-                               latest_data, stock_name, stock_symbol, existing_options):
+                                latest_active_cell, close_n_clicks, selected_analysis_id,
+                                refresh_n_clicks, is_open, stocks_data, top_data, worst_data, 
+                                latest_data, stock_name, stock_symbol, existing_options):
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
@@ -270,7 +270,7 @@ def register_overview_callbacks(app):
             # Update options and return
             analyses = get_previous_analyses(stock_symbol)
             options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
-                       'value': str(a['_id'])} for a in analyses]
+                        'value': str(a['_id'])} for a in analyses]
             return is_open, stock_symbol, stock_name, options, str(analysis_doc['_id']), new_analysis_text
 
         # Handle cell selection
@@ -286,7 +286,7 @@ def register_overview_callbacks(app):
         elif triggered_id == 'latest-results-table':
             active_cell, data = latest_active_cell, latest_data
 
-        if active_cell and active_cell['column_id'] == 'ai_indicator':
+        if active_cell and data and active_cell['column_id'] == 'ai_indicator':
             row = data[active_cell['row']]
             stock_name = row['company_name']
             stock_symbol = row['symbol']
@@ -294,7 +294,7 @@ def register_overview_callbacks(app):
 
             if analyses:
                 options = [{'label': a['timestamp'].strftime('%Y-%m-%d %H:%M:%S'), 
-                           'value': str(a['_id'])} for a in analyses]
+                            'value': str(a['_id'])} for a in analyses]
                 latest_analysis = analyses[-1]
                 default_value = str(latest_analysis['_id'])
                 content = latest_analysis['analysis']

@@ -1,9 +1,13 @@
+# util/analysis.py
+
 import requests
+import os
 
 def fetch_stock_analysis(stock_name):
     api_url = 'https://api.perplexity.ai/chat/completions'
+    api_key = os.getenv('PERPLEXITY_API_KEY')  # Ensure your API key is stored in an environment variable
     headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
+        'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
     }
     
@@ -56,5 +60,5 @@ def fetch_stock_analysis(stock_name):
     if response.status_code == 200:
         return response.json()['choices'][0]['message']['content']
     else:
+        print(f"Error fetching analysis: {response.status_code} {response.text}")
         return None
-
