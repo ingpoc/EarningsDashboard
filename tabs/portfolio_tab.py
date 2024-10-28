@@ -318,24 +318,41 @@ def register_portfolio_callback(app):
 
 
     @app.callback(
-        Output('output-data-upload', 'children'),
-        Input('upload-data', 'contents'),
-        State('upload-data', 'filename')
-    )
+    Output('output-data-upload', 'children'),
+    Input('upload-data', 'contents'),
+    State('upload-data', 'filename')
+)
     def handle_file_upload(contents, filename):
         if contents is None:
             return html.Div()
 
+        # Clear existing holdings in the collection
         get_collection('holdings').delete_many({})
 
+        # Split the contents to separate the content type from the actual data
         content_type, content_string = contents.split(',')
+
+        # Decode the base64 content
         decoded = base64.b64decode(content_string)
         try:
-            if 'csv' in filename:
+            # Read the file based on its extension
+            if 'csv' in filename.lower():
                 df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
             else:
                 df = pd.read_excel(io.BytesIO(decoded))
+            
+            # Check if 'Instrument' column exists
+            if 'Instrument' in df.columns:
+                # Remove '-BE' suffix from Instrument names if present
+                df['Instrument'] = df['Instrument'].astype(str).str.replace(r'-BE$', '', regex=True)
+            else:
+                return html.Div("Error: 'Instrument' column not found in the uploaded file.", className="text-danger")
+            
+            # Optionally, you can perform additional data cleaning or validation here
+
+            # Convert DataFrame to dictionary records and insert into MongoDB
             get_collection('holdings').insert_many(df.to_dict("records"))
             return html.Div("Portfolio uploaded successfully!", className="text-success")
         except Exception as e:
+            # Handle exceptions and provide feedback
             return html.Div([f'There was an error processing this file: {str(e)}'], className="text-danger")

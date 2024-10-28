@@ -1,17 +1,1 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Green Circular Background -->
-  <circle cx="12" cy="12" r="10" fill="#4CAF50" />
-  
-  <!-- "AI" Text -->
-  <text 
-    x="12" 
-    y="16" 
-    text-anchor="middle" 
-    font-family="Arial, Helvetica, sans-serif" 
-    font-size="10" 
-    fill="white"
-    font-weight="bold"
-  >
-    AI
-  </text>
-</svg>
+<svg width="60" height="74" viewBox="0 0 60 74" fill="none" xmlns="http://www.w3.org/2000/svg" class="h-full w-auto shrink-0 transform-gpu"><path d="M29.6848 25.4603L48.3092 41.4828V65.1065L29.6848 49.0293M29.6848 25.4603L10.5359 40.7925L10.5892 64.669L29.6316 49.0293M29.6848 25.4603L3.4071 24.8588V48.5542L10.0911 48.6959M29.6848 25.4603L55.9884 25.7611V49.5761L48.6649 49.4467M29.6848 25.4603L11.3722 9.03792L11.2884 24.5988M29.6848 25.4603L48.7956 9.74877V25.4474M29.6848 25.4603L29.63 2.75943M29.6848 25.4603V49.1113M29.63 71.6481L29.6848 49.0839" stroke="currentColor" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
