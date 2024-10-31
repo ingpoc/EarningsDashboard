@@ -65,6 +65,10 @@ def overview_layout():
             dbc.ModalHeader(dbc.ModalTitle(id="overview-modal-title", className="text-primary")),
             dbc.ModalBody(id="overview-details-body"),
         ], id="overview-details-modal", size="lg", scrollable=True),
+
+        # Add this line to include the store
+        dcc.Store(id='data-update-timestamp'),
+
     ], fluid=True)
 
 def create_data_card(title, table_id, data):
@@ -88,6 +92,7 @@ def create_data_table(id, data):
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Result Date", "id": "result_date_display"},
             {"name": "Recommendation", "id": "recommendation"},
+            # Adjust the AI column to be wider to accommodate the recommendation text
             {"name": "AI", "id": "ai_indicator", "presentation": "markdown"},
         ],
         data=data.to_dict('records'),
@@ -127,7 +132,7 @@ def create_data_table(id, data):
             {'if': {'column_id': 'processed_estimates'}, 'minWidth': '80px', 'maxWidth': '100px'},
             {'if': {'column_id': 'piotroski_score'}, 'minWidth': '80px', 'maxWidth': '120px'},
             {'if': {'column_id': 'recommendation'}, 'minWidth': '130px', 'maxWidth': '150px'},
-            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '30px', 'maxWidth': '40px'},
+            {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '100px', 'maxWidth': '150px'},
         ],
         style_data_conditional=[
             {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
@@ -190,10 +195,16 @@ def register_overview_callbacks(app):
          Output('worst-performers-table', 'data'),
          Output('latest-results-table', 'data'),
          Output('stocks-table', 'data')],
-        [Input('quarter-dropdown', 'value')]
+        [Input('quarter-dropdown', 'value'),
+         Input('data-update-timestamp', 'data')]
     )
-    def update_tables(selected_quarter):
+    def update_tables(selected_quarter, data_update_timestamp):
         df = fetch_latest_quarter_data()
+
+        # Re-apply data processing steps
+        df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
+        df['processed_estimates'] = df['estimates'].apply(process_estimates)
+        df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
         
         if selected_quarter:
             df = df[df['quarter'] == selected_quarter]
@@ -209,33 +220,34 @@ def register_overview_callbacks(app):
 
     # Combined callback for opening and closing the AI Recommendation Modal
     @app.callback(
-    [Output('ai-recommendation-modal', 'is_open'),
-     Output('selected-stock-symbol', 'data'),
-     Output('selected-stock-name', 'data'),
-     Output('analysis-history-dropdown', 'options'),
-     Output('analysis-history-dropdown', 'value'),
-     Output('ai-recommendation-content', 'children')],
-    [Input('stocks-table', 'active_cell'),
-     Input('top-performers-table', 'active_cell'),
-     Input('worst-performers-table', 'active_cell'),
-     Input('latest-results-table', 'active_cell'),
-     Input('close-ai-modal', 'n_clicks'),
-     Input('analysis-history-dropdown', 'value'),
-     Input('refresh-analysis-button', 'n_clicks')],
-    [State('ai-recommendation-modal', 'is_open'),
-     State('stocks-table', 'derived_virtual_data'),
-     State('top-performers-table', 'derived_virtual_data'),
-     State('worst-performers-table', 'derived_virtual_data'),
-     State('latest-results-table', 'derived_virtual_data'),
-     State('selected-stock-name', 'data'),
-     State('selected-stock-symbol', 'data'),
-     State('analysis-history-dropdown', 'options')],
-    prevent_initial_call=True
-)
-    def handle_ai_recommendation(stocks_active_cell, top_active_cell, worst_active_cell, 
-                                latest_active_cell, close_n_clicks, selected_analysis_id,
-                                refresh_n_clicks, is_open, stocks_data, top_data, worst_data, 
-                                latest_data, stock_name, stock_symbol, existing_options):
+        [Output('ai-recommendation-modal', 'is_open'),
+         Output('selected-stock-symbol', 'data'),
+         Output('selected-stock-name', 'data'),
+         Output('analysis-history-dropdown', 'options'),
+         Output('analysis-history-dropdown', 'value'),
+         Output('ai-recommendation-content', 'children'),
+         Output('data-update-timestamp', 'data')],  # Added this output
+        [Input('stocks-table', 'active_cell'),
+         Input('top-performers-table', 'active_cell'),
+         Input('worst-performers-table', 'active_cell'),
+         Input('latest-results-table', 'active_cell'),
+         Input('close-ai-modal', 'n_clicks'),
+         Input('analysis-history-dropdown', 'value'),
+         Input('refresh-analysis-button', 'n_clicks')],
+        [State('ai-recommendation-modal', 'is_open'),
+         State('stocks-table', 'derived_virtual_data'),
+         State('top-performers-table', 'derived_virtual_data'),
+         State('worst-performers-table', 'derived_virtual_data'),
+         State('latest-results-table', 'derived_virtual_data'),
+         State('selected-stock-name', 'data'),
+         State('selected-stock-symbol', 'data'),
+         State('analysis-history-dropdown', 'options')],
+        prevent_initial_call=True
+    )
+    def handle_ai_recommendation(stocks_active_cell, top_active_cell, worst_active_cell,
+                                 latest_active_cell, close_n_clicks, selected_analysis_id,
+                                 refresh_n_clicks, is_open, stocks_data, top_data, worst_data,
+                                 latest_data, stock_name, stock_symbol, existing_options):
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
@@ -244,19 +256,19 @@ def register_overview_callbacks(app):
 
         # Handle close button
         if triggered_id == 'close-ai-modal':
-            return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
         # Handle analysis history selection
         if triggered_id == 'analysis-history-dropdown' and selected_analysis_id:
             analysis_doc = get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
             content = analysis_doc['analysis'] if analysis_doc else 'Analysis not found.'
-            return is_open, stock_symbol, stock_name, existing_options, selected_analysis_id, content
+            return is_open, stock_symbol, stock_name, existing_options, selected_analysis_id, content, dash.no_update
 
         # Handle refresh analysis
         if triggered_id == 'refresh-analysis-button' and refresh_n_clicks:
             new_analysis_text = fetch_stock_analysis(stock_name)
             if new_analysis_text is None:
-                return is_open, stock_symbol, stock_name, existing_options, dash.no_update, 'Error fetching new analysis.'
+                return is_open, stock_symbol, stock_name, existing_options, dash.no_update, 'Error fetching new analysis.', dash.no_update
 
             # Store new analysis
             analysis_doc = {
@@ -267,10 +279,14 @@ def register_overview_callbacks(app):
             }
             get_collection('ai_analysis').insert_one(analysis_doc)
 
-            # Update options and return
+            # Update options with the new analysis
             analyses = get_previous_analyses(stock_symbol)
             options = [{'label': format_label(a['timestamp']), 'value': str(a['_id'])} for a in analyses]
-            return is_open, stock_symbol, stock_name, options, str(analysis_doc['_id']), new_analysis_text
+
+            # Update data-update-timestamp to trigger table refresh
+            timestamp = datetime.now().timestamp()  # Use current timestamp as a trigger
+
+            return is_open, stock_symbol, stock_name, options, str(analysis_doc['_id']), new_analysis_text, timestamp
 
         # Handle cell selection
         active_cell = None
@@ -301,9 +317,9 @@ def register_overview_callbacks(app):
                 default_value = None
                 content = 'No previous analysis available.'
 
-            return True, stock_symbol, stock_name, options, default_value, content
+            return True, stock_symbol, stock_name, options, default_value, content, dash.no_update
 
-        return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
 
 def format_label(timestamp):

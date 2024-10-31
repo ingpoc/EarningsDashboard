@@ -6,12 +6,10 @@ import dash_bootstrap_components as dbc
 from dash import html
 import numpy as np
 from functools import lru_cache
-import redis
+import re
 
 
 
-# Initialize Redis client
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
 
 # Centralized MongoDB connection
 def get_mongo_client():
@@ -77,13 +75,13 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
 # Function to generate stock recommendation
 
 
-@lru_cache(maxsize=200)
+
 def fetch_latest_quarter_data():
     stocks = list(get_collection('detailed_financials').find({}, {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}))
-    
+
     # Fetch portfolio stocks
     portfolio_stocks = set(get_collection('holdings').distinct('Instrument'))
-    
+
     # Read the SVG file for portfolio indicator
     with open('assets/portfolio_indicator.svg', 'r') as f:
         svg_content = f.read()
@@ -103,9 +101,22 @@ def fetch_latest_quarter_data():
         indicator = f'<img src="data:image/svg+xml;base64,{encoded_svg}" width="24" height="24">' if in_portfolio else ''
         company_name_with_indicator = f'{indicator} {company_name}'
 
-        # Create the AI indicator HTML (without id)
+        # Fetch the latest AI analysis
+        analysis_doc = get_collection('ai_analysis').find_one({'symbol': symbol}, sort=[('timestamp', -1)])
+        if analysis_doc:
+            analysis_text = analysis_doc['analysis'] 
+            ai_recommendation = extract_recommendation(analysis_text)
+            
+        else:
+            ai_recommendation = None
+
+        # Create the AI indicator HTML
         ai_indicator_html = f'<img src="{ai_indicator}" width="24" height="24" style="cursor: pointer;" />'
-        
+
+        # Combine AI indicator and recommendation
+        if ai_recommendation:
+            ai_indicator_html += f' {ai_recommendation}'
+
         stock_data.append({
             "company_name": company_name,
             "symbol": symbol,
@@ -129,9 +140,11 @@ def fetch_latest_quarter_data():
             "piotroski_score": parse_numeric_value(latest_metric.get("piotroski_score", "0")),
             "technicals_trend": latest_metric.get("technicals_trend", "NA"),
             "revenue_growth": parse_numeric_value(latest_metric.get("revenue_growth", "0%")),
-            "fundamental_insights": latest_metric.get("fundamental_insights", "N/A")
-            })
-    
+            "fundamental_insights": latest_metric.get("fundamental_insights", "N/A"),
+            # Add the AI recommendation to the data
+            "ai_recommendation": ai_recommendation if ai_recommendation else "N/A",
+        })
+
     df = pd.DataFrame(stock_data)
     df = df.sort_values(by="result_date", ascending=False)
     return df
@@ -234,5 +247,59 @@ def get_previous_analyses(symbol):
     analyses = list(get_collection('ai_analysis').find({'symbol': symbol}).sort('timestamp', 1))
     return analyses
 
+
+def extract_recommendation(analysis_text):
+    """
+    Extracts the recommendation from the AI analysis text.
+    """
+    # Attempt to extract the 'Recommendation:' or 'Stock Recommendation:' section
+    recommendation_section = None
+    match = re.search(r'(Recommendation|Stock Recommendation):\s*(.*?)(?:\n\n|$)', analysis_text, re.DOTALL | re.IGNORECASE)
+    if match:
+        recommendation_section = match.group(2).strip()
+    else:
+        recommendation_section = analysis_text  # Search the entire text if no specific section is found
+
+    # Define patterns to search for the recommendation
+    patterns = [
+        r'it is recommended to (buy|hold|sell|strong buy|strong sell)',
+        r'recommended to (buy|hold|sell|strong buy|strong sell)',
+        r'we recommend (buying|holding|selling)',
+        r'^(Buy|Hold|Sell|Strong Buy|Strong Sell)[\.:]',  # Line starts with 'Buy', possibly followed by '.' or ':'
+        r'\b(Buy|Hold|Sell|Strong Buy|Strong Sell)\b',    # Matches standalone words
+    ]
+
+    for pattern in patterns:
+        # Search within the recommendation section first
+        rec_match = re.search(pattern, recommendation_section, re.IGNORECASE | re.MULTILINE)
+        if rec_match:
+            recommendation = rec_match.group(1).lower()
+            # Normalize the recommendation word
+            if recommendation in ['buying']:
+                return 'Buy'
+            elif recommendation in ['holding']:
+                return 'Hold'
+            elif recommendation in ['selling']:
+                return 'Sell'
+            else:
+                return recommendation.title()
+
+    # If not found in the section, search the entire analysis text
+    for pattern in patterns:
+        rec_match = re.search(pattern, analysis_text, re.IGNORECASE | re.MULTILINE)
+        if rec_match:
+            recommendation = rec_match.group(1).lower()
+            if recommendation in ['buying']:
+                return 'Buy'
+            elif recommendation in ['holding']:
+                return 'Hold'
+            elif recommendation in ['selling']:
+                return 'Sell'
+            else:
+                return recommendation.title()
+
+    # If not found, log a warning
+    print(f"Warning: No recommendation found in analysis text:\n{analysis_text}")
+    return None
 
     
