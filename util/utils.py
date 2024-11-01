@@ -299,7 +299,7 @@ def extract_recommendation(analysis_text):
                 return recommendation.title()
 
     # If not found, log a warning
-    print(f"Warning: No recommendation found in analysis text:\n{analysis_text}")
+    print(f"Warning: No recommendation found in analysis text")
     return None
 
     

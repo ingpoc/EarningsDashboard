@@ -379,6 +379,7 @@ def register_overview_callbacks(app):
                 if analysis_exists:
                     continue
 
+                print(f"Fetching analysis for {company_name}")
                 analysis_text = fetch_stock_analysis(company_name)
 
                 if analysis_text is None:

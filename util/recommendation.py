@@ -235,24 +235,24 @@ def generate_stock_recommendation(data):
         else:
             total_score -= weights['fundamental_insights']
 
-    if data.get('company_name', '') == 'IOB':
-        print("Metrics for IOB:")
-        print(f"TTM P/E Ratio: {ttm_pe}")
-        print(f"P/B Ratio: {pb_ratio}")
-        print(f"Net Profit Growth (%): {net_profit_growth}%")
-        print(f"Revenue Growth (%): {revenue_growth}%")
-        print(f"Piotroski Score: {piotroski_score}")
-        print(f"Technicals Trend: {technicals_trend}")
-        print(f"Strengths vs Weaknesses: {strengths} vs {weaknesses}")
-        print(f"Dividend Yield (%): {dividend_yield}%")
-        print(f"TTM EPS: {ttm_eps}")
-        print(f"Face Value: {face_value}")
-        print(f"Book Value vs Price: {book_value}")
-        print(f"Fundamental Insights: {fundamental_insights}")
-        print(f"Current Price: {current_price}")
-        print(f"Sector P/E: {sector_pe}")
-        print(f"Missing Metrics: {missing_metrics}")
-        print(f"Total Score: {total_score}")
+    #if data.get('company_name', '') == 'IOB':
+       # print("Metrics for IOB:")
+       # print(f"TTM P/E Ratio: {ttm_pe}")
+       # print(f"P/B Ratio: {pb_ratio}")
+       # print(f"Net Profit Growth (%): {net_profit_growth}%")
+       # print(f"Revenue Growth (%): {revenue_growth}%")
+       # print(f"Piotroski Score: {piotroski_score}")
+       # print(f"Technicals Trend: {technicals_trend}")
+       # print(f"Strengths vs Weaknesses: {strengths} vs {weaknesses}")
+       # print(f"Dividend Yield (%): {dividend_yield}%")
+       # print(f"TTM EPS: {ttm_eps}")
+       # print(f"Face Value: {face_value}")
+       # print(f"Book Value vs Price: {book_value}")
+       # print(f"Fundamental Insights: {fundamental_insights}")
+       # print(f"Current Price: {current_price}")
+       # print(f"Sector P/E: {sector_pe}")
+       # print(f"Missing Metrics: {missing_metrics}")
+       # print(f"Total Score: {total_score}")
 
     # Normalize total score to a scale between -1 and 1
     normalized_score = total_score / max_score
