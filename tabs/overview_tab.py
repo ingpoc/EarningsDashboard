@@ -1,7 +1,14 @@
-# tabs/overview_tab.py
+# overview_tab.py
 
-import dash_bootstrap_components as dbc
+import threading
+import time
+from datetime import datetime, timedelta
+from bson import ObjectId
+import dash
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 from dash import html, dash_table, dcc
+import dash_bootstrap_components as dbc
 import pandas as pd
 from dash.dash_table.Format import Format, Scheme
 from util.utils import (
@@ -12,26 +19,17 @@ from util.utils import (
 )
 from util.analysis import fetch_stock_analysis
 from util.recommendation import generate_stock_recommendation
-from dash.dependencies import Input, Output, State
-import dash
 from tabs.stock_details_tab import stock_details_layout
 from util.layout import ai_recommendation_modal
-from bson import ObjectId
-from dash.exceptions import PreventUpdate
-from datetime import datetime, timedelta
 
 def overview_layout():
     df = fetch_latest_quarter_data()
-   
+
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
-    # Generate recommendations for each row
     df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
 
-    # Extract unique quarters from the data and sort them
     unique_quarters = sorted(df['quarter'].unique(), reverse=True)
-    
-    # Set the latest quarter as the default value
     latest_quarter = unique_quarters[0] if unique_quarters else None
 
     return dbc.Container([
@@ -43,6 +41,10 @@ def overview_layout():
             placeholder="Select a quarter",
             className="mb-4"
         ),
+        dbc.Button("Refresh AI Analysis for All Stocks", id="batch-ai-refresh-button", color="primary", className="mb-4"),
+        html.Div(id='batch-ai-feedback', className="mb-4"),
+        # Add the new Store component
+        dcc.Store(id='batch-data-update-timestamp'),
         dbc.Tabs([
             dbc.Tab(label="Top Performers", children=[
                 create_data_card("Top 10 Performers", 'top-performers-table', df)
@@ -196,23 +198,24 @@ def register_overview_callbacks(app):
          Output('latest-results-table', 'data'),
          Output('stocks-table', 'data')],
         [Input('quarter-dropdown', 'value'),
-         Input('data-update-timestamp', 'data')]
+         Input('data-update-timestamp', 'data'),
+         Input('batch-data-update-timestamp', 'data')]
     )
-    def update_tables(selected_quarter, data_update_timestamp):
+    def update_tables(selected_quarter, data_update_timestamp, batch_data_update_timestamp):
         df = fetch_latest_quarter_data()
 
         # Re-apply data processing steps
         df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
         df['processed_estimates'] = df['estimates'].apply(process_estimates)
         df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
-        
+
         if selected_quarter:
             df = df[df['quarter'] == selected_quarter]
-        
+
         top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
         worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
         latest_results = df.sort_values(by="result_date", ascending=False).head(10)
-        
+
         return (top_performers.to_dict('records'),
                 worst_performers.to_dict('records'),
                 latest_results.to_dict('records'),
@@ -350,6 +353,56 @@ def register_overview_callbacks(app):
             dash.no_update, dash.no_update, dash.no_update
         )
 
+    @app.callback(
+        [Output('batch-data-update-timestamp', 'data'),
+         Output('batch-ai-feedback', 'children')],
+        Input('batch-ai-refresh-button', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def batch_ai_analysis(n_clicks):
+        if n_clicks is None:
+            raise dash.exceptions.PreventUpdate
+
+        def process_batch():
+            df = fetch_latest_quarter_data()
+            latest_quarter = df['quarter'].max()
+            latest_stocks = df[df['quarter'] == latest_quarter]
+
+            for index, row in latest_stocks.iterrows():
+                symbol = row['symbol']
+                company_name = row['company_name']
+
+                analysis_exists = get_collection('ai_analysis').find_one({
+                    'symbol': symbol
+                })
+
+                if analysis_exists:
+                    continue
+
+                analysis_text = fetch_stock_analysis(company_name)
+
+                if analysis_text is None:
+                    print(f"Failed to fetch analysis for {company_name}")
+                    continue
+
+                analysis_doc = {
+                    'company_name': company_name,
+                    'symbol': symbol,
+                    'analysis': analysis_text,
+                    'timestamp': datetime.now(),
+                }
+                get_collection('ai_analysis').insert_one(analysis_doc)
+
+                # Optional: Add a delay to respect API rate limits
+                time.sleep(1)
+
+            print("Batch AI analysis completed.")
+
+        thread = threading.Thread(target=process_batch)
+        thread.start()
+
+        timestamp = datetime.now().timestamp()
+        return timestamp, "Batch AI analysis started. This may take several minutes."
 
 def format_label(timestamp):
     now = datetime.now()
