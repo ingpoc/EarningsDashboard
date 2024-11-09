@@ -94,7 +94,6 @@ def create_data_table(id, data):
             {"name": "Estimates (%)", "id": "processed_estimates", "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)},
             {"name": "Result Date", "id": "result_date_display"},
             {"name": "Recommendation", "id": "recommendation"},
-            # Adjust the AI column to be wider to accommodate the recommendation text
             {"name": "AI", "id": "ai_indicator", "presentation": "markdown"},
         ],
         data=data.to_dict('records'),
@@ -267,28 +266,15 @@ def register_overview_callbacks(app):
 
         # Handle close button
         if triggered_id == 'close-ai-modal':
-            return (
-                False, dash.no_update, dash.no_update, dash.no_update,
-                dash.no_update, dash.no_update, dash.no_update
-            )
+            return handle_close_modal()
 
         # Handle analysis history selection
         if triggered_id == 'analysis-history-dropdown' and selected_analysis_id:
-            analysis_doc = get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
-            content = analysis_doc['analysis'] if analysis_doc else 'Analysis not found.'
-            return (
-                is_open, stock_symbol, stock_name, existing_options,
-                selected_analysis_id, content, dash.no_update
-            )
+            return handle_analysis_history_selection(is_open, stock_symbol, stock_name, existing_options, selected_analysis_id)
 
         # Handle refresh analysis
         if triggered_id == 'refresh-analysis-button' and refresh_n_clicks:
-            new_analysis_text = fetch_stock_analysis(stock_name)
-            if new_analysis_text is None:
-                return (
-                    is_open, stock_symbol, stock_name, existing_options,
-                    dash.no_update, 'Error fetching new analysis.', dash.no_update
-                )
+            return handle_refresh_analysis(stock_name, stock_symbol, existing_options)
 
             # Store new analysis
             analysis_doc = {
@@ -368,16 +354,17 @@ def register_overview_callbacks(app):
             latest_quarter = df['quarter'].max()
             latest_stocks = df[df['quarter'] == latest_quarter]
 
-            for index, row in latest_stocks.iterrows():
+            symbols = latest_stocks['symbol'].unique().tolist()
+
+            # Fetch existing symbols with analyses
+            existing_symbols = set(get_collection('ai_analysis').distinct('symbol', {'symbol': {'$in': symbols}}))
+
+            # Filter out stocks that already have analyses
+            stocks_to_analyze = latest_stocks[~latest_stocks['symbol'].isin(existing_symbols)]
+
+            for index, row in stocks_to_analyze.iterrows():
                 symbol = row['symbol']
                 company_name = row['company_name']
-
-                analysis_exists = get_collection('ai_analysis').find_one({
-                    'symbol': symbol
-                })
-
-                if analysis_exists:
-                    continue
 
                 print(f"Fetching analysis for {company_name}")
                 analysis_text = fetch_stock_analysis(company_name)
@@ -413,3 +400,47 @@ def format_label(timestamp):
         return 'Yesterday ' + timestamp.strftime('%H:%M')
     else:
         return timestamp.strftime('%d %B %Y')
+
+def handle_close_modal():
+    return (
+        False, dash.no_update, dash.no_update, dash.no_update,
+        dash.no_update, dash.no_update, dash.no_update
+    )
+
+def handle_analysis_history_selection(is_open, stock_symbol, stock_name, existing_options, selected_analysis_id):
+    analysis_doc = get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
+    content = analysis_doc['analysis'] if analysis_doc else 'Analysis not found.'
+    return (
+        is_open, stock_symbol, stock_name, existing_options,
+        selected_analysis_id, content, dash.no_update
+    )
+
+def handle_refresh_analysis(stock_name, stock_symbol, existing_options):
+    new_analysis_text = fetch_stock_analysis(stock_name)
+    if new_analysis_text is None:
+        return (
+            True, stock_symbol, stock_name, existing_options,
+            dash.no_update, 'Error fetching new analysis.', dash.no_update
+        )
+
+    # Store new analysis
+    analysis_doc = {
+        'company_name': stock_name,
+        'symbol': stock_symbol,
+        'analysis': new_analysis_text,
+        'timestamp': datetime.now(),
+    }
+    get_collection('ai_analysis').insert_one(analysis_doc)
+
+    # Update options with the new analysis
+    analyses = get_previous_analyses(stock_symbol)
+    options = [{'label': format_label(a['timestamp']), 'value': str(a['_id'])} for a in analyses]
+
+    # Update data-update-timestamp to trigger table refresh
+    timestamp = datetime.now().timestamp()
+
+    return (
+        True, stock_symbol, stock_name, options, str(analysis_doc['_id']),
+        new_analysis_text, timestamp
+    )
+

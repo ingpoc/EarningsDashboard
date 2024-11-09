@@ -12,10 +12,28 @@ mongo_client = MongoClient('mongodb://localhost:27017/')
 db = mongo_client['stock_data']
 
 def settings_layout():
+    # Retrieve the current AI API selection from the database
+    settings_doc = db['settings'].find_one({'_id': 'ai_api_selection'})
+    selected_api = settings_doc.get('selected_api', 'perplexity') if settings_doc else 'perplexity'
+
     return dbc.Container([
         html.H3("Settings", className="mb-4"),
-        # Existing settings components...
-        
+        html.H4("AI API Selection", className="mb-3"),
+        dbc.Row([
+            dbc.Col([
+                dbc.Label("Select AI API:"),
+                dbc.RadioItems(
+                    id='ai-api-selection',
+                    options=[
+                        {'label': 'Perplexity API', 'value': 'perplexity'},
+                        {'label': 'xAI API', 'value': 'xai'}
+                    ],
+                    value=selected_api,  # Use the stored selection
+                    inline=True
+                ),
+            ], width=12, className="mb-3"),
+        ]),
+        html.Div(id="api-selection-status", className="mb-3"),
         html.Hr(),
         html.H4("Database Backup and Restore", className="mb-3"),
         dbc.Row([
@@ -32,7 +50,21 @@ def settings_layout():
     ], className="py-3")
 
 def register_settings_callbacks(app):
-    
+
+    @app.callback(
+        Output("api-selection-status", "children"),
+        Input("ai-api-selection", "value")
+    )
+    def update_api_selection(selected_api):
+        # Store the selected API in the database
+        db['settings'].update_one(
+            {'_id': 'ai_api_selection'},
+            {'$set': {'selected_api': selected_api}},
+            upsert=True
+        )
+        api_name = "Perplexity API" if selected_api == "perplexity" else "xAI API"
+        return dbc.Alert(f"AI API switched to {api_name}.", color="info")
+
     @app.callback(
         Output("backup-restore-status", "children"),
         [

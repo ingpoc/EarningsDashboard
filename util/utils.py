@@ -235,11 +235,26 @@ def fetch_latest_metrics(symbol):
     }
 
 def load_ai_indicator():
-    with open('assets/ai_indicator.svg', 'r') as f:
-        svg_content = f.read()
-    # Encode the SVG content
-    encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
-    return f'data:image/svg+xml;base64,{encoded_svg}'
+    # Get the selected AI API from the settings
+    settings_doc = get_collection('settings').find_one({'_id': 'ai_api_selection'})
+    selected_api = settings_doc.get('selected_api', 'perplexity') if settings_doc else 'perplexity'
+
+    # Determine the SVG file based on the selected API
+    if selected_api == 'xai':
+        svg_filename = 'xAI_indicator.svg'
+    else:
+        svg_filename = 'ai_indicator.svg'
+
+    # Load the SVG content
+    try:
+        with open(f'assets/{svg_filename}', 'r') as f:
+            svg_content = f.read()
+        # Encode the SVG content
+        encoded_svg = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+        return f'data:image/svg+xml;base64,{encoded_svg}'
+    except FileNotFoundError:
+        print(f"Error: SVG file '{svg_filename}' not found in the 'assets' directory.")
+        return ''
 
 
 # Implement get_previous_analyses function
