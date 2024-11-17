@@ -7,6 +7,9 @@ from dash import html
 import numpy as np
 from functools import lru_cache
 import re
+from datetime import datetime, timedelta
+from util.database import DatabaseConnection
+
 
 
 
@@ -32,9 +35,8 @@ def get_collection(collection_name):
 @lru_cache(maxsize=500)
 def fetch_stock_names():
     try:
-        
-        stocks = get_collection('detailed_financials').find({}, {"company_name": 1})
-        return [stock['company_name'] for stock in stocks if 'company_name' in stock]
+        collection = DatabaseConnection.get_collection('detailed_financials')
+        return sorted([stock['company_name'] for stock in collection.find({}, {"company_name": 1})])
     except Exception as e:
         print(f"Error fetching stock names: {str(e)}")
         return []
@@ -176,8 +178,10 @@ def process_estimates(estimate_str):
     except ValueError:
         return None
 
+@lru_cache(maxsize=1000)
 def fetch_latest_metrics(symbol):
-    stock = get_collection('detailed_financials').find_one({"symbol": symbol})
+    collection = DatabaseConnection.get_collection('detailed_financials')
+    stock = collection.find_one({"symbol": symbol})
     
     if not stock or not stock.get('financial_metrics'):
         return {
