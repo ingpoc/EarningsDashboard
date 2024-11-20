@@ -75,8 +75,6 @@ def create_portfolio_table(df):
             'textAlign': 'left',
         },
         style_header={
-            'backgroundColor': '#2c3e50',
-            'color': 'white',
             'fontWeight': 'bold',
             'textAlign': 'center',
             'padding': '12px',
@@ -88,45 +86,50 @@ def create_portfolio_table(df):
             'lineHeight': '15px'
         },
         style_data_conditional=[
-        {
-            'if': {'row_index': 'odd'},
-            'backgroundColor': 'rgb(248, 248, 248)'
-        },
-        {
-            'if': {
-                'filter_query': '{P&L} > 0',
-                'column_id': 'P&L'
+            {
+                'if': {'row_index': 'odd'},
             },
-            'color': '#28a745',
-            'fontWeight': 'bold'
-        },
-        {
-            'if': {
-                'filter_query': '{P&L} < 0',
-                'column_id': 'P&L'
+            {
+                'if': {
+                    'filter_query': '{P&L} > 0',
+                    'column_id': 'P&L'
+                },
+                'fontWeight': 'bold',
+                'className': 'positive-value',
             },
-            'color': '#dc3545',
-            'fontWeight': 'bold'
-        },
-        {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
-        {
-            'if': {
-                'filter_query': '{Estimates (%)} < 0',
-                'column_id': 'Estimates (%)'
+            {
+                'if': {
+                    'filter_query': '{P&L} < 0',
+                    'column_id': 'P&L'
+                },
+                'fontWeight': 'bold',
+                'className': 'negative-value',
             },
-            'color': '#dc3545',  # Red for negative estimates
-        },
-        {
-            'if': {
-                'filter_query': '{Estimates (%)} > 0',
-                'column_id': 'Estimates (%)'
+            {
+                'if': {
+                    'filter_query': '{Estimates (%)} < 0',
+                    'column_id': 'Estimates (%)'
+                },
+                'color': '#dc3545',  # Red color
             },
-            'color': '#28a745',  # Green for positive estimates
-        },
-        {'if': {'column_id': 'strengths'}, 'backgroundColor': 'rgba(40, 167, 69, 0.1)'},
-        {'if': {'column_id': 'weaknesses'}, 'backgroundColor': 'rgba(220, 53, 69, 0.1)'},
-        # Additional styling rules...
-    ],
+            {
+                'if': {
+                    'filter_query': '{Estimates (%)} > 0',
+                    'column_id': 'Estimates (%)'
+                },
+                'color': '#28a745',  # Green color
+            },
+            {
+                'if': {'column_id': 'strengths'},
+                'color': '#28a745',  # Green color
+                'fontWeight': 'bold',
+            },
+            {
+                'if': {'column_id': 'weaknesses'},
+                'color': '#dc3545',  # Red color
+                'fontWeight': 'bold',
+            },
+        ],
     )
 
 def register_portfolio_callback(app):
