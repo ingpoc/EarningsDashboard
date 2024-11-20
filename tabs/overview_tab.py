@@ -111,17 +111,18 @@ def create_data_table(id, data):
             'whiteSpace': 'nowrap',
             'overflow': 'hidden',
             'fontFamily': '"Segoe UI", Arial, sans-serif',
+            # Removed 'color' and 'backgroundColor' properties
         },
         style_header={
-            'backgroundColor': '#f8f9fa',
             'fontWeight': 'bold',
             'fontSize': '15px',
             'border': '1px solid #dee2e6',
             'whiteSpace': 'nowrap',
-            'overflow': 'hidden'
+            'overflow': 'hidden',
+            # Removed 'backgroundColor' and 'color' properties
         },
         style_data={
-            'border': '1px solid #dee2e6',
+            # Removed 'border', 'color', and 'backgroundColor' properties
         },
         style_cell_conditional=[
             {'if': {'column_id': 'company_name_with_indicator'}, 'minWidth': '150px', 'maxWidth': '200px'},
@@ -136,11 +137,49 @@ def create_data_table(id, data):
             {'if': {'column_id': 'ai_indicator'}, 'textAlign': 'center', 'minWidth': '100px', 'maxWidth': '150px'},
         ],
         style_data_conditional=[
-            {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
-            {'if': {'filter_query': '{processed_estimates} < 0', 'column_id': 'processed_estimates'}, 'color': '#dc3545'},
-            {'if': {'filter_query': '{processed_estimates} > 0', 'column_id': 'processed_estimates'}, 'color': '#28a745'},
-            {'if': {'column_id': 'strengths'}, 'backgroundColor': 'rgba(40, 167, 69, 0.1)'},
-            {'if': {'column_id': 'weaknesses'}, 'backgroundColor': 'rgba(220, 53, 69, 0.1)'},
+            {
+                'if': {'row_index': 'odd'},
+                # Removed 'backgroundColor'
+            },
+            {
+                'if': {
+                    'filter_query': '{processed_estimates} < 0',
+                    'column_id': 'processed_estimates',
+                },
+                'className': 'negative-value',  # Use CSS class
+            },
+            {
+                'if': {
+                    'filter_query': '{processed_estimates} > 0',
+                    'column_id': 'processed_estimates',
+                },
+                'className': 'positive-value',  # Use CSS class
+            },
+            {
+                'if': {'column_id': 'strengths'},
+                'color': '#28a745',
+                'fontWeight': 'bold',
+            },
+            {
+                'if': {'column_id': 'weaknesses'},
+                'color': '#dc3545',
+                'fontWeight': 'bold',
+            },
+            {
+                'if': {
+                    'filter_query': '{processed_estimates} > 0',
+                    'column_id': 'processed_estimates',
+                },
+                'color': '#28a745',
+            },
+            {
+                'if': {
+                    'filter_query': '{processed_estimates} < 0',
+                    'column_id': 'processed_estimates',
+                },
+                'color': '#dc3545',
+            },
+            # ...other conditional styles without hardcoded colors...
         ],
         filter_action="native",
         sort_action="native",

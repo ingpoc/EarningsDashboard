@@ -104,6 +104,16 @@ def search_stock(value, current_pathname):
             return current_pathname, f"An error occurred during search: {str(e)}"
     return dash.no_update, dash.no_update
 
+@app.callback(
+    Output('main-container', 'className'),
+    Input('dark-mode-switch', 'value')
+)
+def toggle_dark_mode(dark_mode):
+    if dark_mode:
+        return "h-100 dark-mode"
+    else:
+        return "h-100"
+
 # Run the app
 if __name__ == '__main__':
     app.run_server(debug=True)

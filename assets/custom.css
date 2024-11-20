@@ -359,3 +359,112 @@ button.close {
 .shadow {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
 }
+
+/* Dark mode styles */
+.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+.dark-mode body,
+.dark-mode .container,
+.dark-mode .content,
+.dark-mode .card,
+.dark-mode .modal-content,
+.dark-mode .sidebar,
+.dark-mode .navbar,
+.dark-mode .dash-table {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+.dark-mode .card {
+    background-color: #1e1e1e;
+}
+
+.dark-mode .dash-table .dash-header {
+    background-color: #1e1e1e;
+}
+
+.dark-mode .sidebar a {
+    color: #adb5bd;
+}
+
+.dark-mode .sidebar a:hover {
+    background-color: #495057;
+    color: #ffffff;
+}
+
+.dark-mode .dash-table-container {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+
+.dark-mode .dash-table-container .dash-header {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+.dark-mode .dash-table-container .dash-cell {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+
+.dark-mode .dash-table-container {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+.dark-mode .dash-table-container .dash-spreadsheet-container .dash-spreadsheet {
+    background-color: #121212;
+}
+
+.dark-mode .dash-table-container .dash-spreadsheet-container .dash-spreadsheet tr {
+    background-color: #1e1e1e;
+}
+
+.dark-mode .dash-table-container .dash-spreadsheet-container .dash-spreadsheet td {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border-color: #2e2e2e;
+}
+
+.dark-mode .dash-table-container .dash-spreadsheet-container .dash-spreadsheet th {
+    background-color: #2e2e2e;
+    color: #ffffff;
+    border-color: #3a3a3a;
+}
+
+.dark-mode .dash-table-container .dash-spreadsheet-container .dash-spreadsheet tr:hover {
+    background-color: #2a2a2a;
+}
+
+/* Positive and Negative Values */
+.positive-value {
+    color: #28a745; /* Green for positive values */
+}
+
+.negative-value {
+    color: #dc3545; /* Red for negative values */
+}
+
+/* In dark mode, adjust colors if necessary */
+.dark-mode .positive-value {
+    color: #28a745;
+}
+
+.dark-mode .negative-value {
+    color: #dc3545;
+}
+
+/* Buttons */
+.dark-mode .btn-primary {
+    background-color: #0056b3;
+    border: none;
+}
+
+.dark-mode .btn-primary:hover {
+    background-color: #004085;
+}
+
+/* Update other elements as needed */
