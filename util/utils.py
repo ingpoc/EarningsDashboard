@@ -42,38 +42,89 @@ def parse_numeric_value(value, remove_chars='%'):
     except (ValueError, TypeError):
         return np.nan
 
-# Optimize fetch_latest_quarter_data with better data processing
+# Optimize fetch_latest_quarter_data with bulk operations and caching
 @lru_cache(maxsize=100)
 def fetch_latest_quarter_data():
     try:
         collection = DatabaseConnection.get_collection('detailed_financials')
-        portfolio_stocks = set(DatabaseConnection.get_collection('holdings').distinct('Instrument'))
+        portfolio_collection = DatabaseConnection.get_collection('holdings')
         
-        # Load indicators once
-        portfolio_indicator = load_svg_indicator('portfolio_indicator.svg')
-        ai_indicator = load_ai_indicator()
+        # Bulk fetch portfolio stocks
+        portfolio_stocks = set(portfolio_collection.distinct('Instrument'))
         
-        stocks = list(collection.find(
-            {}, 
-            {"company_name": 1, "symbol": 1, "financial_metrics": {"$slice": -1}, "_id": 0}
-        ))
-
+        # Bulk fetch all stocks with latest metrics
+        pipeline = [
+            {
+                '$project': {
+                    'company_name': 1,
+                    'symbol': 1,
+                    'financial_metrics': {'$slice': ['$financial_metrics', -1]},
+                }
+            }
+        ]
+        
+        stocks = list(collection.aggregate(pipeline))
+        
+        # Prefetch AI analyses in bulk
+        symbols = [stock['symbol'] for stock in stocks]
+        ai_analyses = {
+            doc['symbol']: doc 
+            for doc in DatabaseConnection.get_collection('ai_analysis').find(
+                {'symbol': {'$in': symbols}},
+                sort=[('timestamp', -1)]
+            )
+        }
+        
+        # Process stocks in batches
+        batch_size = 100
         stock_data = []
-        for stock in stocks:
-            if not stock.get('financial_metrics'):
-                continue
-                
-            latest_metric = stock['financial_metrics'][0]
-            processed_data = process_stock_data(stock, latest_metric, portfolio_stocks, 
-                                             portfolio_indicator, ai_indicator)
-            stock_data.append(processed_data)
-
+        
+        for i in range(0, len(stocks), batch_size):
+            batch = stocks[i:i + batch_size]
+            batch_data = process_stock_batch(
+                batch, 
+                portfolio_stocks, 
+                ai_analyses
+            )
+            stock_data.extend(batch_data)
+        
         df = pd.DataFrame(stock_data)
         return df.sort_values(by="result_date", ascending=False)
         
     except Exception as e:
-        print(f"Error fetching latest quarter data: {str(e)}")
+        logging.error(f"Error fetching latest quarter data: {str(e)}")
         return pd.DataFrame()
+
+def process_stock_batch(stocks, portfolio_stocks, ai_analyses):
+    """Process a batch of stocks efficiently"""
+    processed_data = []
+    
+    # Load indicators once per batch
+    portfolio_indicator = load_svg_indicator('portfolio_indicator.svg')
+    ai_indicator = load_ai_indicator()
+    
+    for stock in stocks:
+        if not stock.get('financial_metrics'):
+            continue
+            
+        latest_metric = stock['financial_metrics'][0]
+        
+        # Get AI analysis from prefetched data
+        ai_analysis = ai_analyses.get(stock['symbol'])
+        ai_recommendation = None
+        if ai_analysis:
+            ai_recommendation = extract_recommendation(ai_analysis['analysis'])
+        
+        processed_data.append(process_stock_data(
+            stock, 
+            latest_metric, 
+            portfolio_stocks,
+            portfolio_indicator,
+            ai_indicator,
+            ai_recommendation
+        ))
+    
+    return processed_data
 
 # Helper function to load SVG indicators
 def load_svg_indicator(filename):
@@ -93,7 +144,7 @@ def parse_all_numeric_values(data, keys, remove_chars='%'):
 
 # Function to generate stock recommendation
 
-def process_stock_data(stock, latest_metric, portfolio_stocks, portfolio_indicator, ai_indicator):
+def process_stock_data(stock, latest_metric, portfolio_stocks, portfolio_indicator, ai_indicator, ai_recommendation):
     company_name = stock['company_name']
     symbol = stock.get('symbol', 'N/A')
     in_portfolio = symbol in portfolio_stocks

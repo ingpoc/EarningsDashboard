@@ -3,6 +3,7 @@
 import threading
 import time
 from datetime import datetime, timedelta
+from functools import lru_cache
 from bson import ObjectId
 import dash
 from dash.dependencies import Input, Output, State
@@ -22,17 +23,28 @@ from util.recommendation import generate_stock_recommendation
 from tabs.stock_details_tab import stock_details_layout
 from util.layout import ai_recommendation_modal
 
-def overview_layout():
+# Cache the processed data
+@lru_cache(maxsize=1)
+def get_cached_data():
     df = fetch_latest_quarter_data()
-
     df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
     df['processed_estimates'] = df['estimates'].apply(process_estimates)
     df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
+    return df
 
+def overview_layout():
+    # Initial loading with cached data
+    df = get_cached_data()
     unique_quarters = sorted(df['quarter'].unique(), reverse=True)
     latest_quarter = unique_quarters[0] if unique_quarters else None
 
     return dbc.Container([
+        dcc.Store(id='overview-data-store'),
+        dcc.Interval(
+            id='overview-refresh-interval',
+            interval=300_000,  # Refresh every 5 minutes
+            n_intervals=0
+        ),
         html.H2("Market Overview", className="text-center mb-4"),
         dcc.Dropdown(
             id='quarter-dropdown',
@@ -237,27 +249,46 @@ def register_overview_callbacks(app):
          Output('stocks-table', 'data')],
         [Input('quarter-dropdown', 'value'),
          Input('data-update-timestamp', 'data'),
-         Input('batch-data-update-timestamp', 'data')]
+         Input('batch-data-update-timestamp', 'data'),
+         Input('overview-data-store', 'data')]
     )
-    def update_tables(selected_quarter, data_update_timestamp, batch_data_update_timestamp):
-        df = fetch_latest_quarter_data()
+    def update_tables(selected_quarter, data_update_timestamp, 
+                     batch_data_update_timestamp, overview_data):
+        try:
+            ctx = dash.callback_context
+            triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-        # Re-apply data processing steps
-        df['result_date_display'] = df['result_date'].dt.strftime('%d %b %Y')
-        df['processed_estimates'] = df['estimates'].apply(process_estimates)
-        df['recommendation'] = df.apply(generate_stock_recommendation, axis=1)
+            # If triggered by overview data store, use that data
+            if triggered_id == 'overview-data-store' and overview_data:
+                df = pd.DataFrame(overview_data)
+            else:
+                # Otherwise fetch and process new data
+                df = get_cached_data()
+                if selected_quarter:
+                    df = df[df['quarter'] == selected_quarter]
 
-        if selected_quarter:
-            df = df[df['quarter'] == selected_quarter]
-
-        top_performers = df.sort_values(by="net_profit_growth", ascending=False).head(10)
-        worst_performers = df.sort_values(by="net_profit_growth", ascending=True).head(10)
-        latest_results = df.sort_values(by="result_date", ascending=False).head(10)
-
-        return (top_performers.to_dict('records'),
+            # Ensure result_date is datetime and handle any conversion errors
+            df['result_date'] = pd.to_datetime(df['result_date'], errors='coerce')
+            
+            # Handle any missing values
+            df['net_profit_growth'] = pd.to_numeric(df['net_profit_growth'], errors='coerce').fillna(0)
+            
+            # Calculate tables
+            top_performers = df.nlargest(10, 'net_profit_growth')
+            worst_performers = df.nsmallest(10, 'net_profit_growth')
+            latest_results = df.sort_values('result_date', ascending=False).head(10)
+            
+            return (
+                top_performers.to_dict('records'),
                 worst_performers.to_dict('records'),
                 latest_results.to_dict('records'),
-                df.to_dict('records'))
+                df.to_dict('records')
+            )
+        except Exception as e:
+            print(f"Error updating tables: {str(e)}")
+            # Return empty data if there's an error
+            empty_data = {'records': []}
+            return empty_data, empty_data, empty_data, empty_data
 
     # Combined callback for opening and closing the AI Recommendation Modal
     @app.callback(
@@ -430,6 +461,23 @@ def register_overview_callbacks(app):
 
         timestamp = datetime.now().timestamp()
         return timestamp, "Batch AI analysis started. This may take several minutes."
+    
+    # Add new callback for data refresh
+    @app.callback(
+        Output('overview-data-store', 'data'),
+        [Input('overview-refresh-interval', 'n_intervals'),
+        Input('quarter-dropdown', 'value')]
+    )
+    def refresh_data(n_intervals, selected_quarter):
+        # Clear the cache to force refresh
+        get_cached_data.cache_clear()
+        df = get_cached_data()
+        
+        if selected_quarter:
+            df = df[df['quarter'] == selected_quarter]
+        
+        return df.to_dict('records')
+
 
 def format_label(timestamp):
     now = datetime.now()
@@ -473,6 +521,7 @@ def handle_refresh_analysis(stock_name, stock_symbol, existing_options):
 
     # Update options with the new analysis
     analyses = get_previous_analyses(stock_symbol)
+
     options = [{'label': format_label(a['timestamp']), 'value': str(a['_id'])} for a in analyses]
 
     # Update data-update-timestamp to trigger table refresh
@@ -482,4 +531,7 @@ def handle_refresh_analysis(stock_name, stock_symbol, existing_options):
         True, stock_symbol, stock_name, options, str(analysis_doc['_id']),
         new_analysis_text, timestamp
     )
+
+
+
 
