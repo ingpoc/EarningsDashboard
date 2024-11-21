@@ -6,14 +6,17 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc, dash_table
 from dash.dependencies import Input, Output, State
 from dash.dash_table.Format import Format, Scheme
-from util.utils import fetch_latest_metrics, extract_numeric, get_collection
 from util.recommendation import generate_stock_recommendation
 from util.stock_utils import create_info_card
+from util.database import DatabaseConnection as db
+from util.stock_utils import fetch_latest_metrics
+from util.general_util import extract_numeric
+
 
 
 
 def portfolio_layout():
-    holdings_data = list(get_collection('holdings').find())
+    holdings_data = list(db.get_collection('holdings').find())
 
     content = html.Div([
         html.H3("Portfolio Management", className="mb-4"),
@@ -147,7 +150,7 @@ def register_portfolio_callback(app):
         row = rows[selected_rows[0]]
         instrument_name = row['Instrument']
         stock_details = fetch_latest_metrics(instrument_name)
-        holding = get_collection('holdings').find_one({"Instrument": instrument_name})
+        holding = db.get_collection('holdings').find_one({"Instrument": instrument_name})
 
         modal_content = dbc.Container([
             dbc.Row([
@@ -203,7 +206,7 @@ def register_portfolio_callback(app):
          Input('upload-data', 'filename')]
     )
     def update_portfolio_table(output_upload, contents, filename):
-        holdings_data = list(get_collection('holdings').find())
+        holdings_data = list(db.get_collection('holdings').find())
 
         if not holdings_data:
             return html.Div("No portfolio data available.", className="text-danger")
@@ -330,7 +333,7 @@ def register_portfolio_callback(app):
             return html.Div()
 
         # Clear existing holdings in the collection
-        get_collection('holdings').delete_many({})
+        db.get_collection('holdings').delete_many({})
 
         # Split the contents to separate the content type from the actual data
         content_type, content_string = contents.split(',')
@@ -354,7 +357,7 @@ def register_portfolio_callback(app):
             # Optionally, you can perform additional data cleaning or validation here
 
             # Convert DataFrame to dictionary records and insert into MongoDB
-            get_collection('holdings').insert_many(df.to_dict("records"))
+            db.get_collection('holdings').insert_many(df.to_dict("records"))
             return html.Div("Portfolio uploaded successfully!", className="text-success")
         except Exception as e:
             # Handle exceptions and provide feedback

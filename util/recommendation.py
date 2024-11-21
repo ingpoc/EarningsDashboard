@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from util.utils import parse_numeric_value
+from util.general_util import parse_numeric_value
 
 
 

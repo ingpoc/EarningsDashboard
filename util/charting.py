@@ -2,7 +2,7 @@
 import plotly.graph_objects as go
 import plotly.express as px
 import yfinance as yf
-from util.utils import get_stock_symbol
+from util.stock_utils import get_stock_symbol
 
 def create_market_summary_chart():
     indices = ['S&P 500', 'NASDAQ', 'DOW']

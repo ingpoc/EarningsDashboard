@@ -1,7 +1,7 @@
 # util/layout.py
 import dash_bootstrap_components as dbc
 from dash import dcc, html
-from util.utils import fetch_stock_names
+from util.stock_utils import fetch_stock_names
 from pymongo import MongoClient
 
 # Sidebar layout

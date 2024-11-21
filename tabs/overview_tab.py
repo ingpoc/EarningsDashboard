@@ -13,15 +13,15 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash.dash_table.Format import Format, Scheme
 from util.utils import (
-    fetch_latest_quarter_data,
-    process_estimates,
-    get_previous_analyses,
-    get_collection
+    fetch_latest_quarter_data
 )
 from util.analysis import fetch_stock_analysis
 from util.recommendation import generate_stock_recommendation
 from tabs.stock_details_tab import stock_details_layout
 from util.layout import ai_recommendation_modal
+from util.general_util import process_estimates
+from util.ai_recommendation import  get_previous_analyses
+from util.database import DatabaseConnection as db
 
 # Cache the processed data
 @lru_cache(maxsize=1)
@@ -427,7 +427,7 @@ def register_overview_callbacks(app):
             symbols = latest_stocks['symbol'].unique().tolist()
 
             # Fetch existing symbols with analyses
-            existing_symbols = set(get_collection('ai_analysis').distinct('symbol', {'symbol': {'$in': symbols}}))
+            existing_symbols = set(db.get_collection('ai_analysis').distinct('symbol', {'symbol': {'$in': symbols}}))
 
             # Filter out stocks that already have analyses
             stocks_to_analyze = latest_stocks[~latest_stocks['symbol'].isin(existing_symbols)]
@@ -449,7 +449,7 @@ def register_overview_callbacks(app):
                     'analysis': analysis_text,
                     'timestamp': datetime.now(),
                 }
-                get_collection('ai_analysis').insert_one(analysis_doc)
+                db.get_collection('ai_analysis').insert_one(analysis_doc)
 
                 # Optional: Add a delay to respect API rate limits
                 time.sleep(1)
@@ -466,7 +466,8 @@ def register_overview_callbacks(app):
     @app.callback(
         Output('overview-data-store', 'data'),
         [Input('overview-refresh-interval', 'n_intervals'),
-        Input('quarter-dropdown', 'value')]
+         Input('quarter-dropdown', 'value')],
+        background=True  # Use background callback for non-blocking updates
     )
     def refresh_data(n_intervals, selected_quarter):
         # Clear the cache to force refresh
@@ -495,7 +496,7 @@ def handle_close_modal():
     )
 
 def handle_analysis_history_selection(is_open, stock_symbol, stock_name, existing_options, selected_analysis_id):
-    analysis_doc = get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
+    analysis_doc = db.get_collection('ai_analysis').find_one({'_id': ObjectId(selected_analysis_id)})
     content = analysis_doc['analysis'] if analysis_doc else 'Analysis not found.'
     return (
         is_open, stock_symbol, stock_name, existing_options,
@@ -517,7 +518,7 @@ def handle_refresh_analysis(stock_name, stock_symbol, existing_options):
         'analysis': new_analysis_text,
         'timestamp': datetime.now(),
     }
-    get_collection('ai_analysis').insert_one(analysis_doc)
+    db.get_collection('ai_analysis').insert_one(analysis_doc)
 
     # Update options with the new analysis
     analyses = get_previous_analyses(stock_symbol)
