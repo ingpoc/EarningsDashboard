@@ -3,36 +3,36 @@
 import requests
 import os
 from typing import Union, List, Optional
-from pymongo import MongoClient
-from bson import ObjectId
 from openai import OpenAI
+from util.database import DatabaseConnection
+import logging
 
-# MongoDB connection
-mongo_client = MongoClient('mongodb://localhost:27017/')
-db = mongo_client['stock_data']
+# Use database singleton
+db = DatabaseConnection.get_db()
+
+class APIError(Exception):
+    pass
+
+def get_api_selection() -> str:
+    settings_doc = db['settings'].find_one({'_id': 'ai_api_selection'})
+    return settings_doc.get('selected_api', 'perplexity') if settings_doc else 'perplexity'
 
 def fetch_stock_analysis(stock_input: Union[str, List[str]]) -> Optional[str]:
-    """
-    Fetches stock analysis from the selected AI API for a single stock or a portfolio of stocks.
-
-    Args:
-        stock_input (Union[str, List[str]]): A single stock symbol (str) or a list of stock symbols (List[str]).
-
-    Returns:
-        Optional[str]: The AI-generated analysis or None if an error occurs.
-    """
-    # Retrieve the selected API from the settings
-    settings_doc = db['settings'].find_one({'_id': 'ai_api_selection'})
-    selected_api = settings_doc.get('selected_api', 'perplexity') if settings_doc else 'perplexity'
-
-    if selected_api == 'perplexity':
-        return fetch_stock_analysis_perplexity(stock_input)
-    elif selected_api == 'xai':
-        return fetch_stock_analysis_xai(stock_input)
-    else:
-        print(f"Error: Unknown AI API selected '{selected_api}'.")
+    try:
+        api_map = {
+            'perplexity': fetch_stock_analysis_perplexity,
+            'xai': fetch_stock_analysis_xai
+        }
+        selected_api = get_api_selection()
+        api_function = api_map.get(selected_api)
+        
+        if not api_function:
+            raise APIError(f"Unknown AI API selected: {selected_api}")
+            
+        return api_function(stock_input)
+    except Exception as e:
+        logging.error(f"Error in fetch_stock_analysis: {e}")
         return None
-
 
 def fetch_stock_analysis_perplexity(stock_input: Union[str, List[str]]) -> Optional[str]:
     """

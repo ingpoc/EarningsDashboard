@@ -2,61 +2,44 @@
 
 import dash_bootstrap_components as dbc
 from dash import html
+from typing import Any, Tuple, Optional
 
-def create_info_item(label, value, is_percentage=False, is_estimate=False, is_piotroski=False):
+def get_value_attributes(value: Any, label: str) -> Tuple[str, str, str]:
+    """Helper function to determine color and icon for values"""
     color = ""
     icon = ""
     
-    # Handle None values
-    if value is None:
-        value = "N/A"
-    
-    if is_percentage or is_estimate or 'growth' in label.lower() or label == "Net Profit Growth":
-        try:
-            value_str = str(value)
-            value_float = float(value_str.replace(',', '').strip('%').split(':')[-1].strip())
+    if value is None or str(value).strip() in ['--', 'NA', 'nan', 'N/A', '', 'NaN']:
+        return "", "", "N/A"
+        
+    try:
+        if any(term in label.lower() for term in ['growth', 'yield', 'estimates']):
+            value_float = float(str(value).replace(',', '').strip('%').split(':')[-1].strip())
             if value_float > 0:
-                color = "text-success"
-                icon = "▲"
+                return "text-success", "▲", str(value)
             elif value_float < 0:
-                color = "text-danger"
-                icon = "▼"
-        except (ValueError, IndexError):
-            pass
-    elif is_piotroski:
-        try:
-            value_float = float(value)
-            if value_float > 5:
-                color = "text-success"
-                icon = "▲"
-            elif value_float < 5:
-                color = "text-danger"
-                icon = "▼"
-        except ValueError:
-            pass
+                return "text-danger", "▼", str(value)
+    except (ValueError, IndexError):
+        pass
+        
+    return color, icon, str(value)
+
+def create_info_item(label: str, value: Any, is_percentage: bool = False, 
+                    is_estimate: bool = False, is_piotroski: bool = False) -> html.Div:
+    color, icon, formatted_value = get_value_attributes(value, label)
     
-    if is_estimate:
-        if "Beats" in str(value):
-            color = "text-success"
-            icon = "▲"
-        elif "Missed" in str(value):
-            color = "text-danger"
-            icon = "▼"
-    
-    formatted_value = f"{icon} {value}" if icon else value
-    
-    value_class = f"stock-details-value {color}"
     if is_estimate and ':' in str(value):
-        value_class += " multi-line"
         value_parts = str(value).split(':', 1)
-        formatted_value = html.Div([
+        value_component = html.Div([
             html.Span(value_parts[0] + ':'),
             html.Span(value_parts[1].strip() if len(value_parts) > 1 else '')
         ])
-    
+    else:
+        value_component = f"{icon} {formatted_value}" if icon else formatted_value
+        
     return html.Div([
         html.Span(label, className="stock-details-label"),
-        html.Div(formatted_value, className=value_class)
+        html.Div(value_component, className=f"stock-details-value {color}")
     ], className="stock-details-item")
 
 def create_info_card(title, items, icon):
