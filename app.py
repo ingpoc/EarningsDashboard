@@ -51,7 +51,7 @@ app.layout = html.Div([
     dcc.Store(id="combined-ipo-store"),
     dcc.Store(id="dark-mode-store", data={'dark_mode': False}),
     dcc.Store(id="selected-data-store"),
-], id="main-container")
+], id="main-container", className="h-100")
 
 
 

@@ -52,6 +52,7 @@ body {
 /* DataTables */
 .dash-table-container {
     margin-top: 15px;
+    overflow-x: auto;
 }
 
 .dash-table {
@@ -122,6 +123,18 @@ body {
 .modal-content {
     border-radius: 8px;
     border: none;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
 }
 
 .modal-header {
@@ -190,6 +203,8 @@ button.close {
 .sidebar a:hover {
     background-color: #495057;
     color: #ffffff;
+    transform: scale(1.02);
+    transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
 
 .sidebar a.active {

@@ -68,7 +68,12 @@ def create_portfolio_table(df):
         page_action="native",
         page_current=0,
         page_size=15,
-        style_table={'overflowX': 'auto'},
+        style_table={
+            'overflowX': 'auto',
+            'overflowY': 'hidden',
+            'minWidth': '100%',
+            'width': '100%',
+        },
         style_cell={
             'fontSize': '14px',
             'padding': '12px',

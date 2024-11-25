@@ -304,7 +304,7 @@ def register_overview_callbacks(app):
         [
             Input('stocks-table', 'active_cell'),
             Input('top-performers-table', 'active_cell'),
-            Input('worst-perers-table', 'active_cell'),
+            Input('worst-performers-table', 'active_cell'),
             Input('latest-results-table', 'active_cell'),
             Input('close-ai-modal', 'n_clicks'),
             Input('analysis-history-dropdown', 'value'),
