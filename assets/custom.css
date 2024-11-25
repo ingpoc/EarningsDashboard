@@ -8,6 +8,7 @@ body {
     line-height: 1.6;
     margin: 0;
     padding: 0;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 /* Container */
@@ -468,3 +469,104 @@ button.close {
 }
 
 /* Update other elements as needed */
+
+/* Sidebar Styles */
+#sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 250px;
+    background-color: #343a40;
+    overflow: hidden; /* Hide overflow to prevent scroll */
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+#sidebar .sidebar-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 10px;
+    justify-content: flex-start; /* Align items to the start */
+}
+
+#sidebar-toggle {
+    background-color: transparent;
+    border: none;
+    color: #fff;
+    margin-left: 0; /* Remove extra margin */
+    padding: 0; /* Remove padding if necessary */
+}
+
+#sidebar .sidebar-content {
+    padding: 20px;
+    overflow-y: auto; /* Enable vertical scrolling if content overflows */
+}
+
+#sidebar-collapse {
+    overflow-y: auto;
+}
+
+#sidebar .nav-link {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+}
+
+#sidebar .nav-link .nav-icon {
+    margin-right: 10px;
+    font-size: 1.2rem;
+}
+
+#sidebar .nav-link .sidebar-label {
+    white-space: nowrap;
+}
+
+/* When the sidebar is collapsed */
+#sidebar.collapsed {
+    width: 80px; /* Set sidebar width to show icons */
+}
+
+#sidebar.collapsed .nav-link {
+    justify-content: center;
+}
+
+#sidebar.collapsed .nav-link .sidebar-label {
+    display: none; /* Hide labels when collapsed */
+}
+
+#sidebar.collapsed .sidebar-header h2 {
+    display: none; /* Hide header text when collapsed */
+}
+
+#sidebar.collapsed .sidebar-content {
+    overflow: hidden; /* Hide overflow when collapsed */
+}
+
+#sidebar.collapsed .sidebar-header {
+    justify-content: center;
+}
+
+#sidebar-toggle {
+    /* Adjust toggle button styling */
+    margin-left: 10px;
+}
+
+/* Main content */
+.content {
+    margin-left: 250px;
+    transition: margin-left 0.3s ease;
+    overflow-x: hidden; /* Prevent horizontal scrolling in content */
+    /* ...existing styles... */
+}
+
+/* When the sidebar is collapsed */
+.content.collapsed {
+    margin-left: 80px; /* Adjust margin based on collapsed sidebar width */
+}
+
+/* Prevent horizontal scrolling */
+body, html {
+    overflow-x: hidden;
+}

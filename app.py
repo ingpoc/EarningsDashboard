@@ -42,7 +42,9 @@ register_stock_details_callbacks(app)
 app.layout = dbc.Container([
     dcc.Location(id='url', refresh=False),
     dbc.Row([
-        sidebar,
+        html.Div([
+            sidebar
+        ], id='sidebar-container'),
         content,
         details_modal,
         overview_modal,
@@ -113,6 +115,19 @@ def toggle_dark_mode(dark_mode):
         return "h-100 dark-mode"
     else:
         return "h-100"
+
+@app.callback(
+    [Output('sidebar', 'className'), Output('page-content', 'className')],
+    Input('sidebar-toggle', 'n_clicks'),
+    State('sidebar', 'className')
+)
+def toggle_sidebar(n_clicks, sidebar_class):
+    if n_clicks and 'collapsed' not in sidebar_class:
+        return sidebar_class + ' collapsed', 'content collapsed'
+    elif n_clicks and 'collapsed' in sidebar_class:
+        return sidebar_class.replace(' collapsed', ''), 'content'
+    else:
+        return sidebar_class, 'content'
 
 # Run the app
 if __name__ == '__main__':

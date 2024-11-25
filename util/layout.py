@@ -4,61 +4,106 @@ from dash import dcc, html
 from util.utils import fetch_stock_names
 from pymongo import MongoClient
 
-# Sidebar layout
-sidebar = dbc.Col(
-    [
-        html.Div([
-            html.H2("Earnings Dashboard", className="display-6 text-primary"),
-            html.Hr(),
-            dcc.Dropdown(
-                id='stock-search-sidebar',
-                options=[{'label': name, 'value': name} for name in fetch_stock_names()],
-                placeholder="Search for a stock...",
-                multi=False,
-                style={'width': '100%'},
-                className="mb-3"
-            ),
-            html.Div(id='search-feedback', className="text-danger mb-3"),  # New feedback div
-            dbc.Nav(
-                [
-                    dbc.NavLink([html.I(className="fas fa-chart-line me-2"), "Overview"], href="/overview", id="overview-link", active="exact"),
-                    dbc.NavLink([html.I(className="fas fa-briefcase me-2"), "Portfolio"], href="/portfolio", id="portfolio-link", active="exact"),
-                    dbc.NavLink([html.I(className="fas fa-search me-2"), "Scraper"], href="/scraper", id="scraper-link", active="exact"),
-                    dbc.NavLink([html.I(className="fas fa-users me-2"), "Community"], href="/community", id="community-link", active="exact"),
-                    dbc.NavLink([html.I(className="fas fa-rocket me-2"), "IPOs"], href="/ipos", id="ipos-link", active="exact"),
-                    dbc.NavLink([html.I(className="fas fa-cog me-2"), "Settings"], href="/settings", id="settings-link", active="exact"),
-                ],
-                vertical=True,
-                pills=True,
-                className="mb-3"
-            ),
-            dbc.Switch(
-                id="dark-mode-switch",
-                label="Dark Mode",
-                value=False,
-                className="mt-auto"
-            ),
-        ], className="h-100 d-flex flex-column")
-    ],
-    width=2,
-    className="sidebar bg-light",
-    style={
-        "position": "fixed",
-        "top": 0,
-        "left": 0,
-        "bottom": 0,
-        "width": "16.666667%",
-        "padding": "20px",
-        "boxShadow": "2px 0 5px rgba(0,0,0,0.1)"
-    }
-)
+# Update the NavLinks to separate icons and labels
+nav_links = [
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-chart-line"), className="nav-icon"),
+            html.Span("Overview", className="sidebar-label"),
+        ],
+        href="/overview",
+        id="overview-link",
+        active="exact"
+    ),
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-briefcase"), className="nav-icon"),
+            html.Span("Portfolio", className="sidebar-label"),
+        ],
+        href="/portfolio",
+        id="portfolio-link",
+        active="exact"
+    ),
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-search"), className="nav-icon"),
+            html.Span("Scraper", className="sidebar-label"),
+        ],
+        href="/scraper",
+        id="scraper-link",
+        active="exact"
+    ),
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-users"), className="nav-icon"),
+            html.Span("Community", className="sidebar-label"),
+        ],
+        href="/community",
+        id="community-link",
+        active="exact"
+    ),
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-rocket"), className="nav-icon"),
+            html.Span("IPOs", className="sidebar-label"),
+        ],
+        href="/ipos",
+        id="ipos-link",
+        active="exact"
+    ),
+    dbc.NavLink(
+        [
+            html.Span(html.I(className="fas fa-cog"), className="nav-icon"),
+            html.Span("Settings", className="sidebar-label"),
+        ],
+        href="/settings",
+        id="settings-link",
+        active="exact"
+    ),
+]
 
-content = dbc.Col(
-    id="page-content",
-    width=10,
-    className="content",
-    style={"marginLeft": "16.666667%", "padding": "20px"}
-)
+sidebar = html.Div([
+    # Sidebar header with toggle button and optional title
+    html.Div([
+        dbc.Button(
+            html.I(className="fas fa-bars"),
+            id="sidebar-toggle",
+            color="primary",
+            outline=True,
+            size="lg",
+            className="m-2",
+            style={'color': '#fff'}  # Ensure the icon is visible
+        ),
+        html.H2("Earnings Dashboard", className="display-6 text-primary sidebar-label"),
+    ], className="sidebar-header d-flex align-items-center"),
+    # Sidebar content
+    html.Div([
+        html.Hr(),
+        dcc.Dropdown(
+            id='stock-search-sidebar',
+            options=[{'label': name, 'value': name} for name in fetch_stock_names()],
+            placeholder="Search for a stock...",
+            multi=False,
+            style={'width': '100%'},
+            className="mb-3"
+        ),
+        html.Div(id='search-feedback', className="text-danger mb-3"),
+        dbc.Nav(
+            nav_links,
+            vertical=True,
+            pills=True,
+            className="mb-3"
+        ),
+        dbc.Switch(
+            id="dark-mode-switch",
+            label="Dark Mode",
+            value=False,
+            className="mt-auto sidebar-label"
+        ),
+    ], className="sidebar-content h-100 d-flex flex-column")
+], id="sidebar", className="sidebar")
+
+content = html.Div(id='page-content', className='content')
 
 # Modal for displaying portfolio stock details
 details_modal = dbc.Modal(
