@@ -39,21 +39,19 @@ register_settings_callbacks(app)
 register_notifications_callbacks(app)
 register_stock_details_callbacks(app)
 
-app.layout = dbc.Container([
+app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
-    dbc.Row([
-        html.Div([
-            sidebar
-        ], id='sidebar-container'),
-        content,
-        details_modal,
-        overview_modal,
-        ai_recommendation_modal  # Ensure this is included
-    ], className="h-100"),
+    html.Div([
+        sidebar,
+        html.Div(id='page-content', className='content')
+    ], id='layout', className='d-flex flex-row'),
+    details_modal,
+    overview_modal,
+    ai_recommendation_modal,
     dcc.Store(id="combined-ipo-store"),
     dcc.Store(id="dark-mode-store", data={'dark_mode': False}),
     dcc.Store(id="selected-data-store"),
-], fluid=True, className="h-100", id="main-container")
+], id="main-container")
 
 
 
@@ -119,15 +117,19 @@ def toggle_dark_mode(dark_mode):
 @app.callback(
     [Output('sidebar', 'className'), Output('page-content', 'className')],
     Input('sidebar-toggle', 'n_clicks'),
-    State('sidebar', 'className')
+    [State('sidebar', 'className'), State('page-content', 'className')]
 )
-def toggle_sidebar(n_clicks, sidebar_class):
+def toggle_sidebar(n_clicks, sidebar_class, content_class):
     if n_clicks and 'collapsed' not in sidebar_class:
-        return sidebar_class + ' collapsed', 'content collapsed'
+        new_sidebar_class = sidebar_class + ' collapsed'
+        new_content_class = content_class + ' collapsed'
     elif n_clicks and 'collapsed' in sidebar_class:
-        return sidebar_class.replace(' collapsed', ''), 'content'
+        new_sidebar_class = sidebar_class.replace(' collapsed', '')
+        new_content_class = content_class.replace(' collapsed', '')
     else:
-        return sidebar_class, 'content'
+        new_sidebar_class = sidebar_class
+        new_content_class = content_class
+    return [new_sidebar_class, new_content_class]
 
 # Run the app
 if __name__ == '__main__':

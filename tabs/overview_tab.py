@@ -38,7 +38,7 @@ def overview_layout():
     unique_quarters = sorted(df['quarter'].unique(), reverse=True)
     latest_quarter = unique_quarters[0] if unique_quarters else None
 
-    return dbc.Container([
+    return html.Div([
         dcc.Store(id='overview-data-store'),
         dcc.Interval(
             id='overview-refresh-interval',
@@ -83,7 +83,7 @@ def overview_layout():
         # Add this line to include the store
         dcc.Store(id='data-update-timestamp'),
 
-    ], fluid=True)
+    ], className="full-width-container")
 
 def create_data_card(title, table_id, data):
     return dbc.Card([
@@ -304,7 +304,7 @@ def register_overview_callbacks(app):
         [
             Input('stocks-table', 'active_cell'),
             Input('top-performers-table', 'active_cell'),
-            Input('worst-performers-table', 'active_cell'),
+            Input('worst-perers-table', 'active_cell'),
             Input('latest-results-table', 'active_cell'),
             Input('close-ai-modal', 'n_clicks'),
             Input('analysis-history-dropdown', 'value'),
