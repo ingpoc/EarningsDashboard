@@ -9,3 +9,5 @@ beautifulsoup4
 selenium
 tweepy
 python-dotenv
+openai
+schedule

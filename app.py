@@ -14,19 +14,21 @@ from tabs.stock_details_tab import stock_details_layout, register_stock_details_
 from tabs.settings_tab import settings_layout, register_settings_callbacks
 from tabs.notifications_tab import notifications_layout, register_notifications_callbacks
 from util.database import DatabaseConnection as db
-
-
-
+import diskcache
 import threading
 import schedule
 import time
 
+# Initialize Diskcache
+cache = diskcache.Cache("./cache")
+long_callback_manager = dash.long_callback.DiskcacheLongCallbackManager(cache)
 
 # Initialize Dash app
 app = dash.Dash(__name__, external_stylesheets=[
     dbc.themes.FLATLY,
-    'https://use.fontawesome.com/releases/v5.8.1/css/all.css'
-], suppress_callback_exceptions=True)
+    'https://use.fontawesome.com/releases/v5.8.1/css/all.css',
+    '/assets/styles.css'  # Added this line
+], suppress_callback_exceptions=True, long_callback_manager=long_callback_manager)
 server = app.server  # For deploying on platforms like Heroku
 
 # Register callbacks from other files
@@ -116,4 +118,4 @@ def toggle_dark_mode(dark_mode):
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=8051)

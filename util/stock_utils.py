@@ -1,5 +1,6 @@
 # util/stock_utils.py
 
+import pandas as pd
 import dash_bootstrap_components as dbc
 from dash import html
 from typing import Any, Tuple, Optional

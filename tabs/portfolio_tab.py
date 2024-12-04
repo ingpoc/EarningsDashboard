@@ -210,10 +210,20 @@ def register_portfolio_callback(app):
 
         if not holdings_data:
             return html.Div("No portfolio data available.", className="text-danger")
-
+            
+        # Convert holdings data to DataFrame
         df = pd.DataFrame(holdings_data)
-        metrics = df['Instrument'].apply(fetch_latest_metrics).apply(pd.Series)
+        
+        # Create a list to store metrics for each instrument
+        metrics_list = []
+        for instrument in df['Instrument']:
+            metrics = fetch_latest_metrics(instrument)
+            metrics_list.append(metrics)
+        
+        # Convert metrics list to DataFrame
+        metrics = pd.DataFrame(metrics_list)
 
+        # Rest of the function remains the same...
         # Define placeholders to replace
         placeholders = ['NA', '--', 'N/A', '']
 
