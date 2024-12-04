@@ -1,0 +1,136 @@
+.dash-table-container {
+    margin: 24px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    background: white;
+}
+
+.dash-spreadsheet-container {
+    font-family: 'Inter', 'Open Sans', sans-serif !important;
+}
+
+.dash-table-container .dash-header {
+    background-color: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    color: #1e293b;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 13px;
+    padding: 16px;
+    letter-spacing: 0.5px;
+}
+
+.dash-table-container .column-header-name {
+    font-weight: 700;
+}
+
+.dash-table-container .dash-cell {
+    padding: 14px 16px;
+    font-size: 14px;
+    border-color: #f1f5f9;
+    line-height: 1.6;
+    color: #334155;
+}
+
+.dash-table-container .dash-cell-value {
+    font-family: 'Inter', 'Open Sans', sans-serif !important;
+}
+
+.dash-table-container .dash-cell[data-type="numeric"] {
+    text-align: right;
+}
+
+.dash-table-container .dash-cell-value.BEARISH,
+.dash-table-container .dash-cell-value.VERY.BEARISH {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.dash-table-container .dash-cell-value.BULLISH,
+.dash-table-container .dash-cell-value.VERY.BULLISH {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.dash-table-container .dash-cell-value.Neutral {
+    color: #6b7280;
+}
+
+.positive-value {
+    color: #16a34a !important;
+    font-weight: 600;
+}
+
+.negative-value {
+    color: #dc2626 !important;
+    font-weight: 600;
+}
+
+.dash-table-container .dash-spreadsheet tr:hover {
+    background-color: #f8fafc;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.dash-table-container .dash-filter {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px;
+}
+
+.dash-table-container input::placeholder {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.dash-table-container ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dash-table-container ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.dash-table-container ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.dash-cell-value[data-column-id="RECOMMENDATION"] {
+    font-weight: 600;
+}
+
+.dash-cell-value[data-column-id="RECOMMENDATION"][data-value="Buy"],
+.dash-cell-value[data-column-id="RECOMMENDATION"][data-value="Strong Buy"] {
+    color: #16a34a;
+}
+
+.dash-cell-value[data-column-id="RECOMMENDATION"][data-value="Sell"],
+.dash-cell-value[data-column-id="RECOMMENDATION"][data-value="Strong Sell"] {
+    color: #dc2626;
+}
+
+.dash-cell-value[data-column-id="RECOMMENDATION"][data-value="Hold"] {
+    color: #f59e0b;
+}
+
+.dash-cell-value[data-column-id="STRENGTHS"],
+.dash-cell-value[data-column-id="WEAKNESSES"] {
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 2px 6px;
+    display: inline-block;
+}
+
+.dash-cell-value[data-column-id="STRENGTHS"] {
+    background-color: #f0fdf4;
+    color: #166534;
+}
+
+.dash-cell-value[data-column-id="WEAKNESSES"] {
+    background-color: #fef2f2;
+    color: #991b1b;
+}

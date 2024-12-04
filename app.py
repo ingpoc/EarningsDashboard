@@ -27,8 +27,9 @@ long_callback_manager = dash.long_callback.DiskcacheLongCallbackManager(cache)
 app = dash.Dash(__name__, external_stylesheets=[
     dbc.themes.FLATLY,
     'https://use.fontawesome.com/releases/v5.8.1/css/all.css',
-    '/assets/styles.css'  # Added this line
+    '/assets/styles/index.css'  # Updated path
 ], suppress_callback_exceptions=True, long_callback_manager=long_callback_manager)
+
 server = app.server  # For deploying on platforms like Heroku
 
 # Register callbacks from other files
@@ -48,14 +49,12 @@ app.layout = dbc.Container([
         content,
         details_modal,
         overview_modal,
-        ai_recommendation_modal  # Ensure this is included
+        ai_recommendation_modal
     ], className="h-100"),
     dcc.Store(id="combined-ipo-store"),
     dcc.Store(id="dark-mode-store", data={'dark_mode': False}),
     dcc.Store(id="selected-data-store"),
 ], fluid=True, className="h-100", id="main-container")
-
-
 
 @app.callback(
     Output('page-content', 'children'),

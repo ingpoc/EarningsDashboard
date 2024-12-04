@@ -1,0 +1,26 @@
+/* Dark mode */
+.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+.dark-mode .card,
+.dark-mode .modal-content,
+.dark-mode .sidebar,
+.dark-mode .navbar,
+.dark-mode .dash-table {
+    background-color: #1e1e1e;
+}
+
+.dark-mode .stock-details-card .card-header {
+    background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+.dark-mode .stock-details-item {
+    border-color: #2e2e2e;
+}
+
+.dark-mode .stock-details-label {
+    color: #adb5bd;
+}

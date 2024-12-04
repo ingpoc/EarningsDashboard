@@ -1,0 +1,67 @@
+/* Cards */
+.card {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    background-color: #ffffff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 50px;
+    padding: 0.5rem 1.5rem;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border: none;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+/* Forms */
+.form-control {
+    border-radius: 50px;
+    padding: 0.5rem 1rem;
+    border: 1px solid #ced4da;
+}
+
+/* Modal */
+.modal-dialog {
+    max-width: 800px;
+}
+
+.modal-content {
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    border-bottom: 2px solid #f0f0f0;
+    padding: 1.2rem 1.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Overview Page */
+.tab-content {
+    padding: 20px 0;
+}
+
+.refresh-button {
+    padding: 8px 20px;
+    margin-bottom: 20px;
+}
+
+.quarter-selector {
+    max-width: 200px;
+    margin-bottom: 20px;
+}

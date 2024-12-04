@@ -1,0 +1,42 @@
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background-color: #ffffff;
+    padding-top: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.sidebar a {
+    padding: 15px 20px;
+    font-size: 1rem;
+    color: #495057;
+    display: block;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.sidebar a:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
+}
+
+.sidebar a.active {
+    background-color: #007bff;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Logo and title */
+.sidebar .logo {
+    color: #007bff;
+    font-size: 24px;
+    font-weight: bold;
+    padding: 0 20px 20px;
+}
+
+.sidebar .subtitle {
+    color: #6c757d;
+    font-size: 14px;
+    padding: 0 20px;

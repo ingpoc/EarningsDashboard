@@ -1,0 +1,60 @@
+.stock-details-card {
+    margin-bottom: 1rem;
+    border-radius: 8px;
+}
+
+.stock-details-card .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #007bff;
+    font-weight: 600;
+    color: #343a40;
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+}
+
+.stock-details-card .card-body {
+    padding: 0.6rem;
+}
+
+.stock-details-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 0;
+}
+
+.stock-details-label {
+    font-weight: 600;
+    color: #6c757d;
+    margin-right: 1rem;
+    font-size: 1rem;
+}
+
+.stock-details-value {
+    text-align: right;
+    flex: 1;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+.stock-details-value.text-success {
+    color: #28a745 !important;
+}
+
+.stock-details-value.text-danger {
+    color: #dc3545 !important;
+}
+
+.modal-body {
+    padding: 1.2rem;
+}
+
+.modal-header {
+    padding: 1rem;
+}
+
+.modal-content {
+    max-height: 90vh;
+}
