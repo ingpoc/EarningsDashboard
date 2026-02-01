@@ -11,3 +11,4 @@ tweepy
 python-dotenv
 openai
 schedule
+protobuf>=6.33.5 # not directly required, pinned by Snyk to avoid a vulnerability
